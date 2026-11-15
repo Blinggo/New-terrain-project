@@ -1,0 +1,11 @@
+{
+	"results": [
+		{
+			"evidence": "process pid=17378\nnoise2d: 64/64 match\ngraph: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json\nenv match: false",
+			"id": "D2",
+			"message": "second process reproduced 128 committed golden hashes",
+			"status": "PASS",
+			"suite": "determinism"
+		}
+	]
+}

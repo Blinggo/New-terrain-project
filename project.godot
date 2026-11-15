@@ -1,0 +1,58 @@
+; Engine configuration file.
+; VoxelTerrain - M00 (foundation milestone)
+;
+; RENDERER SWITCH (one line, documented in docs/adr/ADR-0001-renderer-and-extension.md):
+;   mobile (default, Adreno/Mali-class phones + desktop)  ->  rendering/renderer/rendering_method="mobile"
+;   lowest-end fallback (OpenGL ES 3.0 / WebGL2 devices)  ->  rendering/renderer/rendering_method="gl_compatibility"
+; Both lines below must be changed together; see docs/TESTING.md "Renderer switch check".
+
+config_version=5
+
+[application]
+
+config/name="VoxelTerrain"
+config/description="Infinite deterministic voxel terrain - milestone M00 foundation (streaming blocky terrain + engineering harness)."
+run/main_scene="res://src/runtime/world/world.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+config/icon="res://icon.svg"
+
+[debug]
+
+settings/stdout/print_fps=true
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=0
+
+[filesystem]
+
+import/blender/enabled=false
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+textures/default_filters/default_texture_filter=0
+textures/default_filters/use_nearest_mipmap_filter=true
+textures/default_filters/anisotropic_filtering_level=0
+anti_aliasing/quality/msaa_3d=0
+anti_aliasing/quality/msaa_2d=0
+anti_aliasing/quality/screen_space_aa=0
+anti_aliasing/quality/use_taa=false
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
+lights_and_shadows/directional_shadow/16_bits=true
+occlusion_culling/use_occlusion_culling=false
+environment/defaults/default_clear_color=Color(0.53, 0.71, 0.9, 1)

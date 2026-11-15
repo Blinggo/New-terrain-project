@@ -1,0 +1,178 @@
+{
+	"_comment": [
+		"M00 / T3.3 - Single source of truth for block definitions.",
+		"The block library is BUILT IN CODE from this file by",
+		"res://src/adapters/voxel/block_library_builder.gd. Never hand-author a .tres",
+		"library in the editor: it must be reproducible from data.",
+		"",
+		"Field notes:",
+		"  kind              'empty' (no geometry, no collision - air) or 'cube' (full cube).",
+		"  solid             Does the block occupy its full cell? Used by the mesher to decide",
+		"                    neighbour culling together with culls_neighbors.",
+		"  transparent       Visibility passes through (used for face-culling decisions).",
+"                    NOTE for M00: a VoxelBlockyModelCube can carry only ONE material",
+"                    (see src/adapters/voxel/block_library_builder.gd MATERIALS block and",
+"                    tools/probe_materials.gd), and that material must stay opaque or every",
+"                    block is pushed through the transparent pass. So water is flagged",
+"                    transparent:true in data and drawn OPAQUE in M00; the builder reports it",
+"                    under 'translucent_deferred'. True alpha-blended water needs a",
+"                    VoxelBlockyModelMesh with 2 surfaces - deferred to M04.",
+		"  collision         'full' = one full-cell AABB, 'none' = no collision mesh.",
+		"  culls_neighbors   true  = a neighbouring block touching this face is not drawn.",
+		"                    Water/air must be false or the terrain would hide faces behind it.",
+		"  transparency_index  Passed straight to VoxelBlockyModel.transparency_index (1.7).",
+		"  tiles             Face -> atlas tile NAME. Face keys are the six VoxelBlockyModel.Side",
+		"                    names (positive_x, negative_x, positive_y, negative_y, positive_z,",
+		"                    negative_z) plus the shortcuts 'side' (all four horizontals) and",
+		"                    'all' (every face). Most specific key wins.",
+		"",
+		"Deferred on purpose in M00 (see docs/reports/M00_REPORT.md section 10):",
+		"  * leaves are OPAQUE here. Alpha-tested foliage needs a transparency_index/material",
+		"    pass that belongs to the art lock milestone, not the foundation milestone.",
+		"  * water uses a plain cube model, NOT VoxelBlockyModelFluid. Fluid levels and flow are",
+		"    hydrology (M05). Nothing in M00 generates water voxels.",
+		"  * no block attributes (rotation / axis / fluid level). Those live on",
+		"    VoxelBlockyTypeLibrary + VoxelBlockyType, which is the 1.7-native path and is the",
+		"    right base for flora/structures in M09+. Recorded in the report."
+	],
+	"config_version": 1,
+	"atlas": {
+		"texture": "res://content/textures/blocks_atlas.png",
+		"tile_px": 16,
+		"grid_columns": 4,
+		"grid_rows": 4,
+		"tiles": [
+			"grass_top",
+			"grass_side",
+			"dirt",
+			"stone",
+			"sand",
+			"gravel",
+			"snow",
+			"water",
+			"log_side",
+			"log_top",
+			"leaves"
+		]
+	},
+	"blocks": [
+		{
+			"id": 0,
+			"name": "air",
+			"kind": "empty",
+			"solid": false,
+			"transparent": true,
+			"collision": "none",
+			"culls_neighbors": false,
+			"transparency_index": 0,
+			"tiles": {}
+		},
+		{
+			"id": 1,
+			"name": "grass",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": {
+				"positive_y": "grass_top",
+				"negative_y": "dirt",
+				"side": "grass_side"
+			}
+		},
+		{
+			"id": 2,
+			"name": "dirt",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": { "all": "dirt" }
+		},
+		{
+			"id": 3,
+			"name": "stone",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": { "all": "stone" }
+		},
+		{
+			"id": 4,
+			"name": "sand",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": { "all": "sand" }
+		},
+		{
+			"id": 5,
+			"name": "gravel",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": { "all": "gravel" }
+		},
+		{
+			"id": 6,
+			"name": "snow",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": { "all": "snow" }
+		},
+		{
+			"id": 7,
+			"name": "water",
+			"kind": "cube",
+			"solid": false,
+			"transparent": true,
+			"collision": "none",
+			"culls_neighbors": false,
+			"transparency_index": 1,
+			"tiles": { "all": "water" }
+		},
+		{
+			"id": 8,
+			"name": "log",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": {
+				"positive_y": "log_top",
+				"negative_y": "log_top",
+				"side": "log_side"
+			}
+		},
+		{
+			"id": 9,
+			"name": "leaves",
+			"kind": "cube",
+			"solid": true,
+			"transparent": false,
+			"collision": "full",
+			"culls_neighbors": true,
+			"transparency_index": 0,
+			"tiles": { "all": "leaves" }
+		}
+	]
+}

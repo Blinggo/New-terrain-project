@@ -1,0 +1,1270 @@
+{
+	"node_type_count": 57,
+	"node_types": {
+		"Abs": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Abs",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Add": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "Add",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Clamp": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "min"
+				},
+				{
+					"name": "max"
+				}
+			],
+			"name": "Clamp",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"ClampC": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "ClampC",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": -1.0,
+					"name": "min",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 1.0,
+					"name": "max",
+					"type": 3
+				}
+			]
+		},
+		"Comment": {
+			"inputs": [],
+			"name": "Comment",
+			"outputs": [],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": "",
+					"name": "text",
+					"type": 4
+				}
+			]
+		},
+		"Constant": {
+			"inputs": [],
+			"name": "Constant",
+			"outputs": [
+				{
+					"name": "value"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 0.0,
+					"name": "value",
+					"type": 3
+				}
+			]
+		},
+		"Curve": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Curve",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "Curve",
+					"default_value": null,
+					"name": "curve",
+					"type": 24
+				}
+			]
+		},
+		"CustomInput": {
+			"inputs": [],
+			"name": "CustomInput",
+			"outputs": [
+				{
+					"name": "value"
+				}
+			],
+			"params": []
+		},
+		"CustomOutput": {
+			"inputs": [
+				{
+					"name": "value"
+				}
+			],
+			"name": "CustomOutput",
+			"outputs": [
+				{
+					"name": "_out"
+				}
+			],
+			"params": []
+		},
+		"Distance2D": {
+			"inputs": [
+				{
+					"name": "x0"
+				},
+				{
+					"name": "y0"
+				},
+				{
+					"name": "x1"
+				},
+				{
+					"name": "y1"
+				}
+			],
+			"name": "Distance2D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Distance3D": {
+			"inputs": [
+				{
+					"name": "x0"
+				},
+				{
+					"name": "y0"
+				},
+				{
+					"name": "z0"
+				},
+				{
+					"name": "x1"
+				},
+				{
+					"name": "y1"
+				},
+				{
+					"name": "z1"
+				}
+			],
+			"name": "Distance3D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Divide": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "Divide",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Expression": {
+			"inputs": [],
+			"name": "Expression",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": "0",
+					"name": "expression",
+					"type": 4
+				}
+			]
+		},
+		"FastNoise2D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				}
+			],
+			"name": "FastNoise2D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "ZN_FastNoiseLite",
+					"default_value": null,
+					"name": "noise",
+					"type": 24
+				}
+			]
+		},
+		"FastNoise3D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				}
+			],
+			"name": "FastNoise3D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "ZN_FastNoiseLite",
+					"default_value": null,
+					"name": "noise",
+					"type": 24
+				}
+			]
+		},
+		"FastNoiseGradient2D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				}
+			],
+			"name": "FastNoiseGradient2D",
+			"outputs": [
+				{
+					"name": "out_x"
+				},
+				{
+					"name": "out_y"
+				}
+			],
+			"params": [
+				{
+					"class_name": "ZN_FastNoiseLiteGradient",
+					"default_value": null,
+					"name": "noise",
+					"type": 24
+				}
+			]
+		},
+		"FastNoiseGradient3D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				}
+			],
+			"name": "FastNoiseGradient3D",
+			"outputs": [
+				{
+					"name": "out_x"
+				},
+				{
+					"name": "out_y"
+				},
+				{
+					"name": "out_z"
+				}
+			],
+			"params": [
+				{
+					"class_name": "ZN_FastNoiseLiteGradient",
+					"default_value": null,
+					"name": "noise",
+					"type": 24
+				}
+			]
+		},
+		"Floor": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Floor",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Fract": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Fract",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Function": {
+			"inputs": [],
+			"name": "Function",
+			"outputs": [],
+			"params": [
+				{
+					"class_name": "VoxelGraphFunction",
+					"default_value": null,
+					"name": "_function",
+					"type": 24
+				}
+			]
+		},
+		"Image": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				}
+			],
+			"name": "Image",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "Image",
+					"default_value": null,
+					"name": "image",
+					"type": 24
+				},
+				{
+					"class_name": "",
+					"default_value": 0,
+					"name": "filter",
+					"type": 2
+				}
+			]
+		},
+		"InputSDF": {
+			"inputs": [],
+			"name": "InputSDF",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": []
+		},
+		"InputX": {
+			"inputs": [],
+			"name": "InputX",
+			"outputs": [
+				{
+					"name": "x"
+				}
+			],
+			"params": []
+		},
+		"InputY": {
+			"inputs": [],
+			"name": "InputY",
+			"outputs": [
+				{
+					"name": "y"
+				}
+			],
+			"params": []
+		},
+		"InputZ": {
+			"inputs": [],
+			"name": "InputZ",
+			"outputs": [
+				{
+					"name": "z"
+				}
+			],
+			"params": []
+		},
+		"Max": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "Max",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Min": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "Min",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Mix": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				},
+				{
+					"name": "ratio"
+				}
+			],
+			"name": "Mix",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Multiply": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "Multiply",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Noise2D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				}
+			],
+			"name": "Noise2D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "Noise",
+					"default_value": null,
+					"name": "noise",
+					"type": 24
+				}
+			]
+		},
+		"Noise3D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				}
+			],
+			"name": "Noise3D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "Noise",
+					"default_value": null,
+					"name": "noise",
+					"type": 24
+				}
+			]
+		},
+		"Normalize": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				}
+			],
+			"name": "Normalize",
+			"outputs": [
+				{
+					"name": "nx"
+				},
+				{
+					"name": "ny"
+				},
+				{
+					"name": "nz"
+				},
+				{
+					"name": "len"
+				}
+			],
+			"params": []
+		},
+		"OutputSDF": {
+			"inputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"name": "OutputSDF",
+			"outputs": [
+				{
+					"name": "_out"
+				}
+			],
+			"params": []
+		},
+		"OutputSingleTexture": {
+			"inputs": [
+				{
+					"name": "index"
+				}
+			],
+			"name": "OutputSingleTexture",
+			"outputs": [
+				{
+					"name": "_out"
+				}
+			],
+			"params": []
+		},
+		"OutputType": {
+			"inputs": [
+				{
+					"name": "type"
+				}
+			],
+			"name": "OutputType",
+			"outputs": [
+				{
+					"name": "_out"
+				}
+			],
+			"params": []
+		},
+		"OutputWeight": {
+			"inputs": [
+				{
+					"name": "weight"
+				}
+			],
+			"name": "OutputWeight",
+			"outputs": [
+				{
+					"name": "_out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 0,
+					"name": "layer",
+					"type": 2
+				}
+			]
+		},
+		"Pow": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "p"
+				}
+			],
+			"name": "Pow",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Powi": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Powi",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 2,
+					"name": "power",
+					"type": 2
+				}
+			]
+		},
+		"Relay": {
+			"inputs": [
+				{
+					"name": "in"
+				}
+			],
+			"name": "Relay",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Remap": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Remap",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": -1.0,
+					"name": "min0",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 1.0,
+					"name": "max0",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": -1.0,
+					"name": "min1",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 1.0,
+					"name": "max1",
+					"type": 3
+				}
+			]
+		},
+		"SdfBox": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				}
+			],
+			"name": "SdfBox",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 10.0,
+					"name": "size_x",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 10.0,
+					"name": "size_y",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 10.0,
+					"name": "size_z",
+					"type": 3
+				}
+			]
+		},
+		"SdfPlane": {
+			"inputs": [
+				{
+					"name": "y"
+				},
+				{
+					"name": "height"
+				}
+			],
+			"name": "SdfPlane",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": []
+		},
+		"SdfPreview": {
+			"inputs": [
+				{
+					"name": "value"
+				}
+			],
+			"name": "SdfPreview",
+			"outputs": [],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": -1.0,
+					"name": "min_value",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 1.0,
+					"name": "max_value",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 10.0,
+					"name": "fraction_period",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 0,
+					"name": "mode",
+					"type": 2
+				}
+			]
+		},
+		"SdfSmoothSubtract": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "SdfSmoothSubtract",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 0.0,
+					"name": "smoothness",
+					"type": 3
+				}
+			]
+		},
+		"SdfSmoothUnion": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "SdfSmoothUnion",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 0.0,
+					"name": "smoothness",
+					"type": 3
+				}
+			]
+		},
+		"SdfSphere": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				},
+				{
+					"name": "radius"
+				}
+			],
+			"name": "SdfSphere",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": []
+		},
+		"SdfSphereHeightmap": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				}
+			],
+			"name": "SdfSphereHeightmap",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": [
+				{
+					"class_name": "Image",
+					"default_value": null,
+					"name": "image",
+					"type": 24
+				},
+				{
+					"class_name": "",
+					"default_value": 10.0,
+					"name": "radius",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 1.0,
+					"name": "factor",
+					"type": 3
+				}
+			]
+		},
+		"SdfTorus": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				}
+			],
+			"name": "SdfTorus",
+			"outputs": [
+				{
+					"name": "sdf"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 16.0,
+					"name": "radius1",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 4.0,
+					"name": "radius2",
+					"type": 3
+				}
+			]
+		},
+		"Select": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				},
+				{
+					"name": "t"
+				}
+			],
+			"name": "Select",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 0.0,
+					"name": "threshold",
+					"type": 3
+				}
+			]
+		},
+		"Sin": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Sin",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Smoothstep": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Smoothstep",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 0.0,
+					"name": "edge0",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 1.0,
+					"name": "edge1",
+					"type": 3
+				}
+			]
+		},
+		"Spots2D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "spot_radius"
+				}
+			],
+			"name": "Spots2D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 42,
+					"name": "seed",
+					"type": 2
+				},
+				{
+					"class_name": "",
+					"default_value": 32.0,
+					"name": "cell_size",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 0.9,
+					"name": "jitter",
+					"type": 3
+				}
+			]
+		},
+		"Spots3D": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "y"
+				},
+				{
+					"name": "z"
+				},
+				{
+					"name": "spot_radius"
+				}
+			],
+			"name": "Spots3D",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": [
+				{
+					"class_name": "",
+					"default_value": 42,
+					"name": "seed",
+					"type": 2
+				},
+				{
+					"class_name": "",
+					"default_value": 32.0,
+					"name": "cell_size",
+					"type": 3
+				},
+				{
+					"class_name": "",
+					"default_value": 0.9,
+					"name": "jitter",
+					"type": 3
+				}
+			]
+		},
+		"Sqrt": {
+			"inputs": [
+				{
+					"name": "x"
+				}
+			],
+			"name": "Sqrt",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Stepify": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "step"
+				}
+			],
+			"name": "Stepify",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Subtract": {
+			"inputs": [
+				{
+					"name": "a"
+				},
+				{
+					"name": "b"
+				}
+			],
+			"name": "Subtract",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		},
+		"Wrap": {
+			"inputs": [
+				{
+					"name": "x"
+				},
+				{
+					"name": "length"
+				}
+			],
+			"name": "Wrap",
+			"outputs": [
+				{
+					"name": "out"
+				}
+			],
+			"params": []
+		}
+	},
+	"outputs_available": [
+		{
+			"id": 4,
+			"name": "OutputSDF"
+		},
+		{
+			"id": 43,
+			"name": "OutputWeight"
+		},
+		{
+			"id": 44,
+			"name": "OutputType"
+		},
+		{
+			"id": 45,
+			"name": "OutputSingleTexture"
+		}
+	],
+	"source": "VoxelGraphFunction.get_node_type_info(id) on a live VoxelGeneratorGraph main function",
+	"voxel_generator_graph_methods": [
+		"clear",
+		"get_main_function",
+		"set_sdf_clip_threshold",
+		"get_sdf_clip_threshold",
+		"is_using_optimized_execution_map",
+		"set_use_optimized_execution_map",
+		"set_use_subdivision",
+		"is_using_subdivision",
+		"set_subdivision_size",
+		"get_subdivision_size",
+		"set_debug_clipped_blocks",
+		"is_debug_clipped_blocks",
+		"set_use_xz_caching",
+		"is_using_xz_caching",
+		"set_texture_mode",
+		"get_texture_mode",
+		"compile",
+		"debug_analyze_range",
+		"bake_sphere_bumpmap",
+		"bake_sphere_normalmap",
+		"generate_image_from_sdf",
+		"raycast_sdf_approx",
+		"debug_load_waves_preset",
+		"debug_measure_microseconds_per_voxel",
+		"_set_graph_data",
+		"_get_graph_data",
+		"_dummy_function"
+	],
+	"voxel_generator_methods": [
+		"generate_block"
+	]
+}

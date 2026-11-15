@@ -1,0 +1,624 @@
+{
+	"blocked": 3,
+	"elapsed_seconds": 5.763,
+	"exit_code": 0,
+	"fail": 0,
+	"godot": "4.7.2-stable (official)",
+	"headless": false,
+	"os": "Linux",
+	"pass": 84,
+	"results": [
+		{
+			"evidence": "  fnv1a64(\"\"                                            ) = cbf29ce484222325\n  fnv1a64(\"a\"                                           ) = af63dc4c8601ec8c\n  fnv1a64(\"b\"                                           ) = af63df4c8601f1a5\n  fnv1a64(\"foobar\"                                      ) = 85944171f73967e8\n  fnv1a64(\"hello world\"                                 ) = 779a65e7023cd2e7\n  fnv1a64(\"The quick brown fox jumps over the lazy dog\" ) = f3f9b7f5e7e47110",
+			"id": "S1a",
+			"message": "FNV-1a/64 matches all 6 published vectors",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "basis=-3750763034362895579 hex=cbf29ce484222325",
+			"id": "S1b",
+			"message": "offset basis round-trips through to_hex",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "equal=true",
+			"id": "S1c",
+			"message": "hash_bytes == hash_string for identical bytes",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "collisions=0 distinct=28572",
+			"id": "S1d",
+			"message": "hash_int: 0 collisions over 28572 sampled ints",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "combine(1,2)=270e18ca624b7ebb combine(2,1)=97f1387c149d5eff",
+			"id": "S1e",
+			"message": "hash_combine is order-sensitive",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "negatives=0/5000",
+			"id": "S1f",
+			"message": "hash_range never returns a negative value",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "h=b3bf85a06e3fddae",
+			"id": "S1g",
+			"message": "hash_vec3i is repeatable",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "VoxelEngine=true VoxelTerrain=true parent=VoxelNode",
+			"id": "S2a",
+			"message": "Voxel Tools GDExtension is loaded (VoxelEngine + VoxelTerrain registered)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "version=1.7.0 edition=GDExtension git=75d3c6d996ed2331c80edcd8c3ebc947afc0f041",
+			"id": "S2b",
+			"message": "Voxel Tools version is 1.7.0 GDExtension",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "missing=[] unexpectedly_present=[]",
+			"id": "S2c",
+			"message": "21/21 expected classes exist; [\"VoxelBlockyLibraryManager\"] confirmed absent",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "engine hex=263938 entry_symbol=voxel_library_init",
+			"id": "S2d",
+			"message": "voxel.gdextension parses; compatibility_minimum=4.4.1 vs engine 4.7.2-stable (official)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "linux=[\"libvoxel.linux.editor.x86_64.so\", \"libvoxel.linux.template_release.x86_64.so\"]\nother=[]",
+			"id": "S2e",
+			"message": "Linux editor+template binaries installed (2); non-Linux binaries intentionally not installed (0)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "missing keys=[]",
+			"id": "S2f",
+			"message": "voxel_api_dump.json present (309028 bytes) with all required sections",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "missing keys=[]",
+			"id": "S2g",
+			"message": "voxel_graph_nodes.json present (16560 bytes) with all required sections",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "output nodes=[{ \"id\": 4.0, \"name\": \"OutputSDF\" }, { \"id\": 43.0, \"name\": \"OutputWeight\" }, { \"id\": 44.0, \"name\": \"OutputType\" }, { \"id\": 45.0, \"name\": \"OutputSingleTexture\" }]",
+			"id": "S2h",
+			"message": "graph OutputType node is present (id 44) despite being absent from NodeTypeID",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "manifest source: https://github.com/Zylann/godot_voxel/releases/download/v1.7x/GodotVoxelExtension.zip\narchive sha256: 600737572a5e25541ba6f503e842a3717ba19afafa5474510a6ceff995a1d2d8",
+			"id": "S2i",
+			"message": "addons/zylann.voxel/ is unmodified: 35/35 files match the recorded sha256 manifest",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "size=(64, 64) format=5",
+			"id": "S3a",
+			"message": "atlas is 64x64 (4x4 grid of 16px tiles)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "has_mipmaps=true mipmap_count=6",
+			"id": "S3b",
+			"message": "atlas imported WITH mipmaps (needed for use_nearest_mipmap_filter)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "compress/mode=0 (0=Lossless) detect_3d/compress_to=0 (0=off)",
+			"id": "S3c",
+			"message": "atlas import is lossless with no 3D auto-recompress",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "actual=087f907b64a40127abf2b03acaca1ae94a5fbc60a8a12a19a225c23c2b56fab7\nexpect=087f907b64a40127abf2b03acaca1ae94a5fbc60a8a12a19a225c23c2b56fab7",
+			"id": "S3d",
+			"message": "atlas PNG matches the committed sha256 (deterministic generation)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "water=(0.1843, 0.3961, 0.6784, 0.6039) stone=(0.4549, 0.4549, 0.4784, 1.0)",
+			"id": "S3e",
+			"message": "water tile is semi-transparent, stone is opaque",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "{ 0: \"air\", 1: \"grass\", 2: \"dirt\", 3: \"stone\", 4: \"sand\", 5: \"gravel\", 6: \"snow\", 7: \"water\", 8: \"log\", 9: \"leaves\" }",
+			"id": "S3f",
+			"message": "blocks.json declares exactly ids 0..9 with the required names",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ok=true models=10 materials=1 errors=[]",
+			"id": "S3g",
+			"message": "block library builds in code from blocks.json",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "model(0)=VoxelBlockyModelEmpty model(1)=VoxelBlockyModelCube",
+			"id": "S3h",
+			"message": "models[id] == block id for all 10 blocks; id 0 is VoxelBlockyModelEmpty (air)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "top=(0, 0) bottom=(2, 0) side=(1, 0) (expect (0,0) (2,0) (1,0))",
+			"id": "S3i",
+			"message": "grass has distinct top/bottom/side tiles mapped from the atlas grid",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "all 10 blocks correct",
+			"id": "S3j",
+			"message": "per-block collision matches blocks.json (full for solids, none for air/water)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "slot 0: blocks_opaque filter=2 transparency=0 vertex_color_as_albedo=true tex=true",
+			"id": "S3k",
+			"message": "library bakes exactly 1 non-null atlas material with nearest-mipmap filtering",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "actual class=VoxelGeneratorNoise2D",
+			"id": "S4a/noise2d",
+			"message": "'noise2d' builds a VoxelGeneratorNoise2D",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "channel=0 (CHANNEL_TYPE=0)",
+			"id": "S4b/noise2d",
+			"message": "noise2d writes the TYPE channel (required by the blocky mesher)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "samples=[\"(x=-192,z=-192) top=60 ids=[1, 0]\", \"(x=-192,z=-128) top=65 ids=[1, 0]\", \"(x=-192,z=-64) top=70 ids=[1, 0]\"]",
+			"id": "S4e/noise2d",
+			"message": "terrain has real 3D relief: surface spans y=52..73 (21 blocks) over 36 columns",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "holes=0",
+			"id": "S4f/noise2d",
+			"message": "columns are solid from the surface down to world_y_min (no floating terrain)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ids=[0, 1]",
+			"id": "S4g/noise2d",
+			"message": "noise2d writes only air (0) and voxel id 1 - VoxelGeneratorHeightmap limitation, recorded in the report",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "out_of_bounds=0 max_id=1",
+			"id": "S4i/noise2d",
+			"message": "no voxels outside y=[-64,320) and all ids fit the 8-bit TYPE channel",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "actual class=VoxelGeneratorGraph",
+			"id": "S4a/graph",
+			"message": "'graph' builds a VoxelGeneratorGraph",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "compile()={ \"success\": true }",
+			"id": "S4b/graph",
+			"message": "graph compiles in code",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "nodes=[\"terrain_noise\", \"input_x\", \"input_y\", \"input_z\", \"height_remap\", \"depth_below_surface\", \"grass_or_stone_select\", \"air_or_solid_select\", \"output_type\"]",
+			"id": "S4c/graph",
+			"message": "all 9 graph nodes are findable by name",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "resolved={ \"FastNoise2D\": 39, \"InputX\": 1, \"InputY\": 2, \"InputZ\": 3, \"Remap\": 23, \"Subtract\": 6, \"Select\": 26, \"OutputType\": 44 }",
+			"id": "S4d/graph",
+			"message": "OutputType resolved by name to id 44 (absent from the NodeTypeID enum)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "samples=[\"(x=-192,z=-192) top=60 ids=[3, 1, 0]\", \"(x=-192,z=-128) top=69 ids=[3, 1, 0]\", \"(x=-192,z=-64) top=72 ids=[3, 1, 0]\"]",
+			"id": "S4e/graph",
+			"message": "terrain has real 3D relief: surface spans y=49..78 (29 blocks) over 36 columns",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "holes=0",
+			"id": "S4f/graph",
+			"message": "columns are solid from the surface down to world_y_min (no floating terrain)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ids=[0, 1, 3]",
+			"id": "S4g/graph",
+			"message": "graph writes grass (1) on top and stone (3) below",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "measured thicknesses=[3, 3, 3, 3, 3, 3]",
+			"id": "S4h/graph",
+			"message": "grass layer is 3 blocks thick as configured",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "out_of_bounds=0 max_id=3",
+			"id": "S4i/graph",
+			"message": "no voxels outside y=[-64,320) and all ids fit the 8-bit TYPE channel",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ids=[\"noise2d\", \"graph\"] next(noise2d)=graph next(graph)=noise2d unknown->null=true",
+			"id": "S4j",
+			"message": "adapter registry exposes 2 ids and cycles F3-style",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "noise2d: surface y=63 (seed 12345) vs y=63 (seed 54321)\nnoise2d: second column y=59 vs y=66\ngraph: surface y=64 (seed 12345) vs y=64 (seed 54321)\ngraph: second column y=59 vs y=71",
+			"id": "S4k",
+			"message": "the seed visibly changes the terrain for every adapter",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "noise2d  216 chunks in 3.0 ms (0.014 ms/chunk) relief=21 ids=[0, 1] grass=[117, 128, 129, 121, 128, 132]\ngraph    216 chunks in 16.1 ms (0.074 ms/chunk) relief=29 ids=[0, 1, 3] grass=[3, 3, 3, 3, 3, 3]",
+			"id": "S4l",
+			"message": "per-adapter cost and variety measured identically (report input)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected mobile",
+			"id": "S5-cfg-renderer",
+			"message": "rendering/renderer/rendering_method = mobile",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected true",
+			"id": "S5-cfg-nearest-mip",
+			"message": "rendering/textures/default_filters/use_nearest_mipmap_filter = true",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected 0",
+			"id": "S5-cfg-msaa",
+			"message": "rendering/anti_aliasing/quality/msaa_3d = 0",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected 2048",
+			"id": "S5-cfg-shadow-size",
+			"message": "rendering/lights_and_shadows/directional_shadow/size = 2048",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected 0",
+			"id": "S5-cfg-shadow-quality",
+			"message": "rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality = 0",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected 60",
+			"id": "S5-cfg-physics-hz",
+			"message": "physics/common/physics_ticks_per_second = 60",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected res://src/runtime/world/world.tscn",
+			"id": "S5-cfg-main-scene",
+			"message": "application/run/main_scene = res://src/runtime/world/world.tscn",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "expected VoxelTerrain",
+			"id": "S5-cfg-app-name",
+			"message": "application/config/name = VoxelTerrain",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "load_steps ok, can_instantiate=true",
+			"id": "S5a",
+			"message": "world.tscn loads",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "VoxelRoot:<Node3D#128580585332>",
+			"id": "S5b",
+			"message": "world.tscn contains the VoxelRoot placeholder",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "class=VoxelTerrain",
+			"id": "S5c",
+			"message": "adapter created a VoxelTerrain under VoxelRoot",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "mesher=VoxelMesherBlocky library=VoxelBlockyLibrary models=10 materials=1",
+			"id": "S5d",
+			"message": "terrain has a blocky mesher with a generated library",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "VoxelGeneratorNoise2D",
+			"id": "S5e",
+			"message": "terrain has a generator attached",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "<Object#null>",
+			"id": "S5f",
+			"message": "stream is UNSET in M00 (persistence deferred to M12)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "VoxelViewer:<VoxelViewer#129738213278>",
+			"id": "S5g",
+			"message": "a VoxelViewer node is parented to the fly camera",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "fog_density=0.001600 aerial=0.350000",
+			"id": "S5h",
+			"message": "environment: procedural sky + distance fog, glow/SSAO/volumetric fog off",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "rotation=(-52.0, -35.0, 0.0) max_distance=250.000000",
+			"id": "S5i",
+			"message": "DirectionalLight3D present with shadows enabled",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "statistics keys=[\"time_detect_required_blocks\", \"time_request_blocks_to_load\", \"time_process_load_responses\", \"time_request_blocks_to_update\", \"dropped_block_loads\", \"dropped_block_meshs\", \"updated_blocks\"] values={ \"time_detect_required_blocks\": 2, \"time_request_blocks_to_load\": 1, \"time_process_load_responses\": 0, \"time_request_blocks_to_update\": 0, \"dropped_block_loads\": 0, \"dropped_block_meshs\": 0, \"updated_blocks\": 0 }",
+			"id": "S5j",
+			"message": "terrain streamed 410 data blocks in 260 frames",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "missing=[]\nVoxelTerrain M00   HUD cost 0.019 ms/frame (budget 0.3  ok)\n\nFPS      145     frame avg 6.94 ms   p95 6.94 ms   worst 150.00 ms (120 frames)\ndraw calls 0       primitives 0          objects 0     \nstatic mem 109.6 MB  peak 109.7 MB  video mem 0 B\n\npos      (8.0, 90.0, 8.0) m\nchunk    (0, 5, 0)   voxel (8, 90, 8)\nseed     20260814   tier low\ngen      Noise2D heightmap (built-in VoxelGeneratorNoise2D)\nview     8 chunks (viewer value 128)  vertical ratio 2.00  world y [-64,320)\nblocks   loaded 410   voxel payload 1.6 MB\n\nVoxelTerrain.get_statistics():\n   dropped_block_loads              0\n   dropped_block_meshs              0\n   time_detect_required_blocks      2\n   time_process_load_responses      0\n   time_request_blocks_to_load      1\n   time_request_blocks_to_update    0\n   updated_blocks                   0\n\nstartup errors: 0",
+			"id": "S5k",
+			"message": "HUD text contains all required fields",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "[]",
+			"id": "S5l",
+			"message": "world reported no startup errors",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "is_key_pressed(KEY_W)=true after Input.parse_input_event",
+			"id": "S5m1",
+			"message": "an injected InputEventKey drives Input.is_key_pressed (the camera polls keys)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "moved 40.5 m in 40 frames (128.0 m/s expected)",
+			"id": "S5m2",
+			"message": "W moves the fly camera through its own _physics_process",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "yaw 0.0000 -> -0.4400 rad for relative=(200,0)",
+			"id": "S5m3",
+			"message": "mouse-look maths rotates yaw and clamps pitch",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "camera pitch = -89.9426956176758 deg",
+			"id": "S5m3b",
+			"message": "pitch stays clamped to +/-90 degrees after sustained look input",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "re-run windowed: xvfb-run -a godot --path . --script res://tools/run_module.gd -- res://tests/smoke/test_scene.gd",
+			"id": "S5m3c",
+			"message": "captured-mouse routing needs a window (headless cannot hold MOUSE_MODE_CAPTURED)",
+			"status": "BLOCKED",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "stick_vector=(0.0, -0.769231)  _planar_input=(0.0, 1.0) (viewport (1280.0, 1280.0))",
+			"id": "S5m4",
+			"message": "left-half touch drag deflects the virtual stick and feeds planar input",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "yaw delta=0.7500 rad",
+			"id": "S5m5",
+			"message": "right-half touch drag looks around",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ascend=1.000000 both=0.000000 after_release=1.000000 (expect 1, 0, 1)",
+			"id": "S5m6",
+			"message": "on-screen UP/DOWN buttons drive vertical input per finger",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "pos=(8.0, 90.0, 49.0) speed=128 noclip=true touch=false",
+			"id": "S5n",
+			"message": "fly camera reports state",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "is_on_floor=true start_y=130.0 final_y=63.0 min_y=63.0 frames=342",
+			"id": "S5o",
+			"message": "gravity+collision mode lands on generated terrain (A6)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "seed=20260814 block=16 type_depth=8-bit",
+			"id": "D1/noise2d",
+			"message": "64/64 chunk hashes identical across two runs in one process",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "seed=20260814 block=16 type_depth=8-bit",
+			"id": "D1/graph",
+			"message": "64/64 chunk hashes identical across two runs in one process",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "origin=-6547600,240,-2781472\nnoise2d: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\ngraph: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH",
+			"id": "D3",
+			"message": "chunk #40 hashes identically alone and after generating #1..#39",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "origin=37568,64,51696\nnoise2d: alone=add7b16fc21ddda3 after24=add7b16fc21ddda3 MATCH uniform=false non_air=1104/4096\ngraph: alone=5ec659db44119a4f after24=5ec659db44119a4f MATCH uniform=false non_air=1533/4096",
+			"id": "D3b",
+			"message": "order independence on a NON-UNIFORM surface-band chunk",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "noise2d: 10/64 hashes changed when the seed changed by 1\ngraph: 10/64 hashes changed when the seed changed by 1\nnoise2d: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\ngraph: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1",
+			"id": "D4",
+			"message": "a different seed produces different hashes for every adapter",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "banned: [\"randf(\", \"randi(\", \"Time.get_\", \"randomize(\"]\ndirs: [\"res://src/worldgen\", \"res://src/adapters\", \"res://src/core\"]\nsrc/runtime/debug and src/runtime/world may use Time.* (HUD timing, screenshot names, F5 seed); they are never scanned.",
+			"id": "D5",
+			"message": "no banned non-deterministic calls in generation code (10 scripts scanned)",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "files present: [\"res://src/worldgen/README.md\", \"res://src/spine/README.md\"]",
+			"id": "D5b",
+			"message": "src/worldgen and src/spine are still empty in M00 (no later milestones built)",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "origin=true negatives=true far=true y=[-64..304]",
+			"id": "D5c",
+			"message": "64 chunk origins cover origin, negatives and |coord| > 1 000 000",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "generator=noise2d seed=20260814 block=16 type_depth=8-bit\norigin                   hash (hex)         bytes    uniform non_air/total\n0,0,0                    d3fc59178540f6b1   4096     true    4096/4096\n16,0,0                   70bc177f4709b3d5   4096     true    4096/4096\n-16,0,0                  90a0de9450f9c076   4096     true    4096/4096\n0,-64,0                  69f385c4a37f0f44   4096     true    4096/4096\n0,304,0                  a3c8e77660d91540   4096     true    0/4096\n1000000,64,-1000000      f419a68319c5717c   4096     true    0/4096\n-1000016,-64,1000016     fdcababb159fee70   4096     true    4096/4096\n32752,112,-49168         6c4616baaad045ab   4096     true    0/4096",
+			"id": "D-table",
+			"message": "first 8 chunk hashes (noise2d)",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "process pid=17378\nnoise2d: 64/64 match\ngraph: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json\nenv match: false",
+			"id": "D2",
+			"message": "second process reproduced 128 committed golden hashes",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "",
+			"id": "P-GEN",
+			"message": "generation benchmark skipped via --skip-perf",
+			"status": "BLOCKED",
+			"suite": "perf"
+		},
+		{
+			"evidence": "It needs a real window and takes ~3 minutes. Run it separately: see docs/TESTING.md",
+			"id": "P-RUN",
+			"message": "runtime benchmark not run from the headless runner",
+			"status": "BLOCKED",
+			"suite": "perf"
+		}
+	],
+	"threads": 2,
+	"total": 87,
+	"voxel_tools": "1.7.0 GDExtension (release)"
+}
