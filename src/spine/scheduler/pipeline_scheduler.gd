@@ -2,24 +2,24 @@ class_name PipelineScheduler
 extends RefCounted
 ## src/spine/scheduler/pipeline_scheduler.gd
 ##
-## M01 / Task 5 - Resolves the module pipeline from declared requires/provides ONLY.
+## M01-fix - Resolves the module pipeline from declared requires/provides ONLY.
 ##
 ## Rules:
-##   * Phases run in the fixed enum order (PLANET ... DECORATE).
-##   * WITHIN a phase, topological order over requires/provides edges whose producer is in
-##     the same phase. Cross-phase edges are satisfied by phase order; a dependency on a
-##     LATER phase is a resolve error (it could never be satisfied).
+##   * Bands run in ascending `phase_order` (a plain int: a module with an unplanned stage
+##     picks a new number+name without editing the contract file, C16).
+##   * WITHIN a band, topological order over requires/provides edges whose producer is in
+##     the same band. Cross-band edges are satisfied by band order; a dependency on a LATER
+##     band is a resolve error.
 ##   * Tiebreak: priority ascending, then id lexicographic. The ready set is re-sorted from
 ##     a plain Array at every step, so the result cannot depend on Dictionary iteration
-##     order (X4 shuffles the input 50 times and demands an identical dump).
-##   * Cycle -> error printing the actual path, e.g. "a -> b -> c -> a" (X5).
-##   * Missing producer for a requires -> error naming consumer, channel and the resolved
-##     pipeline so far (X6).
-##   * Two producers of one channel -> error naming both.
-##
-## Also computes each TerrainPass's extent and the TOTAL COLUMN MULTIPLICATION FACTOR:
-## the number of column-touches per output column, sum over passes of (1 + 2*extent)^2.
-## That single number is what makes neighbour-aware passes a budgeted decision (Task 5).
+##     order (X4).
+##   * Channel declarations validated with ChannelId: name shape, known type, version >= 1;
+##     consumer declaration must match producer declaration type+scope (C15).
+##   * Cycle -> error printing the actual path "a -> b -> c -> a" (X5).
+##   * Missing producer for a requires -> error naming consumer, channel, pipeline (X6).
+##   * Two producers of one channel -> error naming both (X7-family).
+##   * Extents: each TerrainPass's extent feeds the TOTAL COLUMN MULTIPLICATION FACTOR,
+##     sum over passes of (1 + 2*extent)^2, so neighbour awareness is a budgeted decision.
 ##
 ## LAYER: spine, pure.
 
@@ -37,16 +37,18 @@ func resolve(mods: Array) -> bool:
 	_pass_factors.clear()
 	_column_factor = 0
 
+	_check_declarations(mods)
 	var providers := _build_provider_map(mods)
 	_check_requires(mods, providers)
 	if not errors.is_empty():
 		return false
 
-	for phase in ModuleDefinition.PHASE_NAMES.size():
-		var phase_mods := _mods_in_phase(mods, phase)
-		if phase_mods.is_empty():
+	var bands := _band_orders(mods)
+	for band in bands:
+		var band_mods := _mods_in_band(mods, band)
+		if band_mods.is_empty():
 			continue
-		var sorted := _topo_within_phase(phase_mods, providers, phase)
+		var sorted := _topo_within_band(band_mods, providers, band)
 		if sorted.is_empty():
 			return false   # cycle error already recorded
 		order.append_array(sorted)
@@ -68,7 +70,55 @@ func column_factor() -> int:
 	return _column_factor
 
 
-# --- internals --------------------------------------------------------------------------
+# --- declarations ------------------------------------------------------------------------
+
+func _check_declarations(mods: Array) -> void:
+	for m in mods:
+		var def := m as ModuleDefinition
+		for ch_variant in def.channel_declarations:
+			var ch := StringName(String(ch_variant))
+			var meta: Dictionary = def.channel_declarations[ch_variant]
+			var type_name := String(meta.get("type", ""))
+			var version := int(meta.get("version", 1))
+			for problem in ChannelId.validate(String(ch), type_name, version):
+				errors.append("scheduler: module '%s' declares channel '%s' badly: %s" % [
+					String(def.id), String(ch), problem])
+			var scope := String(meta.get("scope", ""))
+			if not (scope in ["world", "region", "column"]):
+				errors.append("scheduler: module '%s' declares channel '%s' with scope '%s' (must be world|region|column)" % [
+					String(def.id), String(ch), scope])
+		# every requires/provides entry must be declared by this module
+		for ch in def.provides:
+			if not def.channel_declarations.has(ch):
+				errors.append("scheduler: module '%s' provides '%s' without a channel declaration {type, scope, version}" % [
+					String(def.id), String(ch)])
+		for ch in def.requires:
+			if not def.channel_declarations.has(ch):
+				errors.append("scheduler: module '%s' requires '%s' without a channel declaration {type, scope, version}" % [
+					String(def.id), String(ch)])
+
+
+func _check_types_against_producer(mods: Array, providers: Dictionary) -> void:
+	for m in mods:
+		var def := m as ModuleDefinition
+		for ch in def.requires:
+			var producer: ModuleDefinition = providers.get(ch)
+			if producer == null:
+				continue
+			var pm: Dictionary = producer.channel_declarations.get(ch, {})
+			var cm: Dictionary = def.channel_declarations.get(ch, {})
+			if String(pm.get("type", "")) != String(cm.get("type", "")):
+				errors.append("scheduler: channel '%s' type mismatch: producer '%s' declares %s, consumer '%s' declares %s" % [
+					String(ch), String(producer.id), String(pm.get("type", "?")), String(def.id), String(cm.get("type", "?"))])
+			if String(pm.get("scope", "")) != String(cm.get("scope", "")):
+				errors.append("scheduler: channel '%s' scope mismatch: producer '%s' declares %s, consumer '%s' declares %s" % [
+					String(ch), String(producer.id), String(pm.get("scope", "?")), String(def.id), String(cm.get("scope", "?"))])
+			if int(pm.get("version", 1)) != int(cm.get("version", 1)):
+				errors.append("scheduler: channel '%s' version mismatch: producer '%s' v%s, consumer '%s' expects v%s (bump the consumer or the producer, deliberately)" % [
+					String(ch), String(producer.id), str(pm.get("version", 1)), String(def.id), str(cm.get("version", 1))])
+
+
+# --- graph --------------------------------------------------------------------------------
 
 func _build_provider_map(mods: Array) -> Dictionary:
 	var providers := {}
@@ -86,6 +136,7 @@ func _build_provider_map(mods: Array) -> Dictionary:
 
 
 func _check_requires(mods: Array, providers: Dictionary) -> void:
+	_check_types_against_producer(mods, providers)
 	for m in mods:
 		var def := m as ModuleDefinition
 		for ch in def.requires:
@@ -95,39 +146,48 @@ func _check_requires(mods: Array, providers: Dictionary) -> void:
 					% [String(def.id), String(ch), ", ".join(_ids_of(mods))])
 				continue
 			var producer: ModuleDefinition = providers[ch]
-			if producer.phase > def.phase:
+			if producer.phase_order > def.phase_order:
 				errors.append(
-					"scheduler: module '%s' (phase %s) requires channel '%s' from '%s' (phase %s), which runs LATER; phases cannot reach backwards"
-					% [String(def.id), def.phase_name(), String(ch), String(producer.id), producer.phase_name()])
+					"scheduler: module '%s' (band %d/%s) requires channel '%s' from '%s' (band %d/%s), which runs LATER; bands cannot reach backwards"
+					% [String(def.id), def.phase_order, String(def.phase_name), String(ch),
+						String(producer.id), producer.phase_order, String(producer.phase_name)])
 
 
-func _mods_in_phase(mods: Array, phase: int) -> Array:
+func _band_orders(mods: Array) -> Array:
+	var seen := {}
+	for m in mods:
+		seen[(m as ModuleDefinition).phase_order] = true
+	var out: Array = seen.keys()
+	out.sort()
+	return out
+
+
+func _mods_in_band(mods: Array, band: int) -> Array:
 	var out := []
 	for m in mods:
-		if (m as ModuleDefinition).phase == phase:
+		if (m as ModuleDefinition).phase_order == band:
 			out.append(m)
 	return out
 
 
-func _topo_within_phase(phase_mods: Array, providers: Dictionary, phase: int) -> Array:
-	# Edges: consumer -> producer, same phase only.
-	var deps := {}          # id -> Array of provider ids in this phase
+func _topo_within_band(band_mods: Array, providers: Dictionary, band: int) -> Array:
+	var deps := {}
 	var by_id := {}
-	for m in phase_mods:
+	for m in band_mods:
 		var def := m as ModuleDefinition
 		by_id[def.id] = def
 		deps[def.id] = []
-	for m in phase_mods:
+	for m in band_mods:
 		var def := m as ModuleDefinition
 		for ch in def.requires:
 			var producer: ModuleDefinition = providers.get(ch)
-			if producer != null and producer.phase == phase and by_id.has(producer.id):
+			if producer != null and producer.phase_order == band and by_id.has(producer.id):
 				if not deps[def.id].has(producer.id):
 					deps[def.id].append(producer.id)
 
 	var done := {}
 	var out := []
-	var remaining: Array = phase_mods.duplicate()
+	var remaining: Array = band_mods.duplicate()
 	while not remaining.is_empty():
 		var ready := []
 		for m in remaining:
@@ -140,8 +200,7 @@ func _topo_within_phase(phase_mods: Array, providers: Dictionary, phase: int) ->
 			if satisfied:
 				ready.append(m)
 		if ready.is_empty():
-			errors.append("scheduler: dependency cycle in phase %s: %s" % [
-				ModuleDefinition.PHASE_NAMES[phase], _cycle_path(remaining, deps)])
+			errors.append("scheduler: dependency cycle in band %d: %s" % [band, _cycle_path(remaining, deps)])
 			return []
 		ready.sort_custom(_tiebreak)
 		for m in ready:
@@ -165,16 +224,14 @@ func _cycle_path(remaining: Array, deps: Dictionary) -> String:
 	var in_set := {}
 	for m in remaining:
 		in_set[(m as ModuleDefinition).id] = true
-	var color := {}     # 0 unseen, 1 in stack, 2 done
+	var color := {}
 	var stack: Array = []
 	var cycle: Array = []
-
 	for start in remaining:
 		var start_id: StringName = (start as ModuleDefinition).id
 		if color.get(start_id, 0) != 0:
 			continue
-		var found := _dfs(start_id, deps, in_set, color, stack, cycle)
-		if found:
+		if _dfs(start_id, deps, in_set, color, stack, cycle):
 			break
 	if cycle.is_empty():
 		return "(cycle exists but path extraction failed; unresolved: %s)" % str(_ids_of(remaining))
@@ -213,7 +270,8 @@ func _build_dump() -> void:
 		_dump.append({
 			"id": String(def.id),
 			"version": def.version,
-			"phase": def.phase_name(),
+			"phase": String(def.phase_name),
+			"phase_order": def.phase_order,
 			"priority": def.priority,
 			"requires": def.requires.map(func(r): return String(r)),
 			"provides": def.provides.map(func(p): return String(p)),

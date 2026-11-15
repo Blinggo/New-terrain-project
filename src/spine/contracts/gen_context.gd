@@ -30,6 +30,42 @@ var noise_2d: Callable = Callable()
 var profiler: Callable = Callable()
 ## id -> accumulated microseconds, filled by the executor; the HUD pipeline page reads it.
 var timings: Dictionary = {}
+## id -> times executed this context (proof every resolved module actually ran; the M01
+## defect was a module that resolved but was never executed - evidence E2).
+var executed_counts: Dictionary = {}
+## id -> human reason it did NOT run (quality tier retraction, ...). Reported, never silent.
+var skipped: Dictionary = {}
+## id -> number of feature stamps materialized.
+var stamp_placements: Dictionary = {}
+## Runner/backend errors that are not blackboard errors (e.g. a module with no executable
+## contract). Surfaced in the build report so a broken pipeline cannot boot quietly.
+var errors: Array[String] = []
+
+
+## Zero the per-run counters after they have been absorbed into an aggregate, so a reused
+## per-worker context cannot double count.
+func reset_counters() -> void:
+	timings.clear()
+	executed_counts.clear()
+	skipped.clear()
+	stamp_placements.clear()
+	errors.clear()
+
+
+## Merge another context's counters into this one (per-worker contexts are aggregated by the
+## generator under its own lock; the spine never shares a context between threads).
+func absorb(other: GenContext) -> void:
+	for k in other.timings:
+		timings[String(k)] = float(timings.get(String(k), 0.0)) + float(other.timings[k])
+	for k in other.executed_counts:
+		executed_counts[String(k)] = int(executed_counts.get(String(k), 0)) + int(other.executed_counts[k])
+	for k in other.stamp_placements:
+		stamp_placements[String(k)] = int(stamp_placements.get(String(k), 0)) + int(other.stamp_placements[k])
+	for k in other.skipped:
+		skipped[String(k)] = String(other.skipped[k])
+	for e in other.errors:
+		if not errors.has(e):
+			errors.append(e)
 
 
 func stream(domain: StringName, extra: int = 0) -> RandomNumberGenerator:

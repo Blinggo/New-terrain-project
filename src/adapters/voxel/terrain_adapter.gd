@@ -208,6 +208,33 @@ func get_engine_stats() -> Dictionary:
 	return s if s is Dictionary else {}
 
 
+## M01-fix / T9 - Apply the quality tier's engine thread budget. VoxelEngine exposes exactly
+## two scheduling knobs to GDScript: get_thread_count()/set_thread_count() (verified with
+## tools/probe_native_cb7.gd - the full method list is get_stats, get/set_thread_count,
+## get/set_threaded_graphics_resource_building_enabled and the version getters). There is NO
+## per-frame task budget, which is why WorldConfig reports `max_gen_tasks_per_frame` as
+## BLOCKED and wires this instead. Returns the thread count actually in effect afterwards.
+func apply_engine_threads(count: int) -> int:
+	if _engine == null:
+		_engine = ClassDB.instantiate("VoxelEngine")
+	if _engine == null:
+		_report["engine_threads"] = {"requested": count, "applied": -1, "error": "VoxelEngine could not be instantiated"}
+		return -1
+	var wanted := clampi(count, 1, 64)
+	_engine.call("set_thread_count", wanted)
+	var applied := int(_engine.call("get_thread_count"))
+	_report["engine_threads"] = {"requested": wanted, "applied": applied}
+	return applied
+
+
+func get_engine_thread_count() -> int:
+	if _engine == null:
+		_engine = ClassDB.instantiate("VoxelEngine")
+	if _engine == null:
+		return -1
+	return int(_engine.call("get_thread_count"))
+
+
 func get_loaded_block_count() -> int:
 	var pools: Dictionary = get_engine_stats().get("memory_pools", {})
 	return int(pools.get("block_count", 0))

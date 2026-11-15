@@ -8,13 +8,20 @@ extends FieldProvider
 ## `gen_params` values, and the remap formula is the same one the M00 graph encoded as
 ## Remap(min0=-1, max0=1, min1=base-amp/2, max1=base+amp/2).
 ##
-## The graph backend pushes these params into its named nodes; the multipass backend runs
-## compute_region() + the surface pass in GDScript. Both therefore evaluate identical maths
-## from identical numbers, and the M00 golden hashes must reproduce bit-for-bit (X10).
+## TWO channels, on purpose (M01-fix / T3, evidence E3):
+##   field.height        REGION tile, spacing `tile_spacing` (16) + halo. Cheap, coarse. A
+##                       spacing-16 tile holds ONE sample per world column, so nearest
+##                       sampling inside a column returns the same height for all 256 block
+##                       columns - the "half-column plateau" defect the reviewer measured.
+##   field.height_exact  COLUMN tile, spacing 1: the exact analytic height of every one of the
+##                       256 block columns in the current column. Surface passes read THIS.
+##
+## Both are computed from the same function of the same injected noise, so they can never
+## disagree about a sample point; they differ only in resolution.
 ##
 ## LAYER: worldgen. Pure GDScript: no Voxel Tools types (X9), no rand*/Time (D5). The noise
-## itself arrives as ctx.noise_2d, injected by the adapter, so this file never names a noise
-## class either.
+## itself arrives as ctx.noise_2d, injected by the adapter from noise_sampler_recipe(), so
+## this file never names a noise class either.
 
 @export var noise_frequency: float = 0.0035
 @export var noise_octaves: int = 5
@@ -23,24 +30,37 @@ extends FieldProvider
 @export var height_base: float = 64.0
 @export var height_amplitude: float = 42.0
 
-## Sample spacing of the published tile, in blocks. 16 = exactly ONE sample per world column,
-## which is the native resolution of a height field: sample_nearest() then returns the exact
-## column height, so the surface pass reproduces the graph's per-voxel decisions bit-for-bit
-## while compute_region costs ~5k noise calls per region instead of ~1M (measured: a spacing-1
-## tile made the determinism suite exceed its 900 s budget on the 2-thread CI box).
-@export var tile_spacing: int = 16
-@export var tile_halo: int = 2
-
 const CHANNEL_HEIGHT := &"field.height"
+const CHANNEL_HEIGHT_EXACT := &"field.height_exact"
 
 
 func _init() -> void:
 	id = &"planet.hills_v1"
 	version = 1
-	phase = Phase.PLANET
+	use_known_phase(Phase.PLANET)
 	priority = 10
-	provides = [CHANNEL_HEIGHT]
+	provides = [CHANNEL_HEIGHT, CHANNEL_HEIGHT_EXACT]
 	requires = []
+	channel_declarations = {
+		CHANNEL_HEIGHT: {"type": "TILE_FLOAT", "scope": "region", "version": 1},
+		CHANNEL_HEIGHT_EXACT: {"type": "TILE_FLOAT", "scope": "column", "version": 1},
+	}
+	tile_spacing = 16
+	tile_halo = 2
+
+
+## What the injected sampler must be. Adapters read this (not our id, not our class) to build
+## the one noise implementation every backend shares, so GDScript passes and graph nodes
+## evaluate identical maths.
+func noise_sampler_recipe() -> Dictionary:
+	return {
+		"type": "open_simplex_2",
+		"fractal": "fbm",
+		"octaves": noise_octaves,
+		"lacunarity": noise_lacunarity,
+		"gain": noise_gain,
+		"frequency": noise_frequency,
+	}
 
 
 func height_min() -> float:
@@ -75,3 +95,15 @@ func compute_region(ctx: GenContext) -> void:
 			var n: float = ctx.noise_2d.call(int(roundf(wx)), int(roundf(wz)))
 			tile.set_f(i, j, height_from_noise(n))
 	ctx.publish(CHANNEL_HEIGHT, tile, id, GenBlackboard.Scope.REGION)
+
+
+## Exact per-block-column heights for the column being generated (256 samples, spacing 1).
+## This is the channel a surface pass consumes: no nearest-sampling, no plateaus.
+func compute_column(ctx: GenContext) -> void:
+	var o := ctx.column_origin
+	var tile := FieldTile.make_float(16, 1.0, Vector2(float(o.x), float(o.z)), 0)
+	for j in 16:
+		for i in 16:
+			var n: float = ctx.noise_2d.call(o.x + i, o.z + j)
+			tile.set_f(i, j, height_from_noise(n))
+	ctx.publish(CHANNEL_HEIGHT_EXACT, tile, id, GenBlackboard.Scope.COLUMN)

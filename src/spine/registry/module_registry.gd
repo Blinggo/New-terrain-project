@@ -71,7 +71,8 @@ func debug_dump() -> Array:
 		out.append({
 			"id": String(d.id),
 			"version": d.version,
-			"phase": d.phase_name(),
+			"phase": d.phase_label(),
+			"phase_order": d.phase_order,
 			"enabled": d.enabled,
 			"requires": d.requires.map(func(r): return String(r)),
 			"provides": d.provides.map(func(p): return String(p)),

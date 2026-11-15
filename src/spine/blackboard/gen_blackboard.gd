@@ -27,6 +27,11 @@ const SCOPE_NAMES := ["world", "region", "column"]
 ## region size in blocks; matches PipelineRunner REGION_BLOCKS.
 const REGION_BLOCKS := 1024
 
+## channel StringName -> {"type": String, "scope": String, "version": int, "producer": StringName}
+## Loaded from the resolved plan (M01-fix / T7): declarations are ENFORCED here, on every
+## publish and every typed read, instead of being documentation nobody checks.
+var _declarations := {}
+
 var errors: Array[String] = []
 ## When false, failures are recorded in `errors` WITHOUT push_error(). Tests that exercise
 ## the failure modes on purpose set this so a green suite does not spray ERROR lines.
@@ -41,6 +46,37 @@ var _region_flushed := {}   # tiles handed to the executor/cache after compute_r
 
 
 # --- scope lifecycle --------------------------------------------------------------------
+
+## Install the plan's channel declarations. Idempotent; call once per resolved pipeline.
+func apply_declarations(mods: Array) -> void:
+	_declarations.clear()
+	for m_variant in mods:
+		var m := m_variant as ModuleDefinition
+		if m == null:
+			continue
+		for ch_variant in m.channel_declarations:
+			var ch := StringName(String(ch_variant))
+			var meta: Dictionary = m.channel_declarations[ch_variant]
+			var prev: Dictionary = _declarations.get(ch, {})
+			var entry := {
+				"type": String(meta.get("type", "")),
+				"scope": String(meta.get("scope", "")),
+				"version": int(meta.get("version", 1)),
+				"producer": String(m.id) if ch in m.provides else String(prev.get("producer", "")),
+			}
+			if not prev.is_empty() and (prev["type"] != entry["type"] or prev["version"] != entry["version"]):
+				var msg := ("blackboard: channel '%s' declared inconsistently (%s v%s by '%s' vs %s v%s)"
+					% [String(ch), prev["type"], str(prev["version"]), str(prev.get("producer", "?")),
+						entry["type"], str(entry["version"])])
+				errors.append(msg)
+				if loud:
+					push_error(msg)
+			_declarations[ch] = entry
+
+
+func declaration_of(channel: StringName) -> Dictionary:
+	return _declarations.get(channel, {})
+
 
 func begin_region(origin: Vector2i) -> void:
 	_region.clear()
@@ -76,6 +112,29 @@ func publish(channel: StringName, value: Variant, producer_id: StringName, scope
 			var msg := (
 				"blackboard: channel '%s' published by '%s' as %s but already holds %s (published by '%s')"
 				% [String(channel), String(producer_id), type_name, observed, String(target[channel]["producer"])])
+			errors.append(msg)
+			if loud:
+				push_error(msg)
+			return false
+	# Declaration enforcement (T7): observed type and scope must match what the producer
+	# declared. An undeclared channel stays legal - unknown channels are the whole point of
+	# the blackboard - but a DECLARED one cannot drift.
+	var decl: Dictionary = _declarations.get(channel, {})
+	if not decl.is_empty():
+		var want_type: String = decl["type"]
+		if want_type != "" and want_type != type_name:
+			var msg := (
+				"blackboard: channel '%s' is declared %s but '%s' published %s (declared by producer '%s')"
+				% [String(channel), want_type, String(producer_id), type_name, String(decl.get("producer", "?"))])
+			errors.append(msg)
+			if loud:
+				push_error(msg)
+			return false
+		var want_scope: String = decl["scope"]
+		if want_scope != "" and want_scope != SCOPE_NAMES[sc]:
+			var msg := (
+				"blackboard: channel '%s' is declared scope '%s' but '%s' published it in scope '%s'"
+				% [String(channel), want_scope, String(producer_id), SCOPE_NAMES[sc]])
 			errors.append(msg)
 			if loud:
 				push_error(msg)

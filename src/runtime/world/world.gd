@@ -34,6 +34,11 @@ var _terrain: Node3D = null
 var _viewer: Node3D = null
 var _generator: Resource = null
 var _generator_report := {}
+## M01-fix / T2: what the selected backend can do, as declared by its adapter. The HUD, the
+## report and the boot gate all read this instead of guessing from the id.
+var _capabilities := {}
+var _generator_caps_label := "?"
+var _startup_warnings: Array[String] = []
 var _library_report := {}
 var _startup_errors: Array[String] = []
 ## M01: the resolved worldgen pipeline (registry scan + scheduler). Built ONCE per world
@@ -92,25 +97,49 @@ func _build_world(cfg: WorldConfig) -> void:
 	for e in _pipeline["errors"]:
 		push_error("world: pipeline: %s" % e)
 		_startup_errors.append("pipeline: %s" % e)
+
+	# --- capability gate (M01-fix / T8, fail closed) ------------------------------------
+	_capabilities = AdapterRegistry.capabilities(cfg.generator_id)
+	_generator_caps_label = String(_capabilities.get("label", "?"))
+	if not bool(_capabilities.get("executes_all_modules", false)):
+		if cfg.allow_legacy_baseline:
+			var msg := ("world: generator '%s' is a legacy baseline that does NOT execute the module pipeline "
+				+ "(allow_legacy_baseline=true, so booting anyway). Enabled modules: %s")
+			push_warning(msg % [cfg.generator_id, str(pipeline_dump().map(func(m): return m["id"]))])
+			_startup_warnings.append(msg % [cfg.generator_id, "(see report)"])
+		else:
+			var err := ("world: REFUSING to boot on generator '%s': capabilities.executes_all_modules = false, "
+				+ "so enabled modules would resolve and then do nothing (the M01 defect). Use '%s', or set "
+				+ "\"allow_legacy_baseline\": true in content/world_config.json to boot the legacy baseline anyway."
+				% [cfg.generator_id, AdapterRegistry.DEFAULT_ID])
+			push_error(err)
+			_startup_errors.append(err)
+			return
+
+	if not _pipeline.get("ok", false):
+		if cfg.allow_broken_pipeline:
+			push_warning("world: module pipeline is broken but allow_broken_pipeline=true; booting on '%s' anyway" % cfg.generator_id)
+		else:
+			var err := "world: REFUSING to boot: the module pipeline did not resolve (%s). Fix the modules, or set \"allow_broken_pipeline\": true to boot anyway. There is deliberately NO silent fallback generator: a flat noise world hiding a broken pipeline is the failure mode this project exists to prevent." % str(_pipeline["errors"])
+			push_error(err)
+			_startup_errors.append(err)
+			return
+
 	var gen_ctx := cfg.to_gen_context()
 	gen_ctx["pipeline"] = _pipeline
 	var gen_result := AdapterRegistry.build_generator(cfg.generator_id, cfg.seed_value, gen_ctx)
 	_generator = gen_result["generator"]
 	_generator_report = gen_result["report"]
 	if not gen_result["ok"]:
-		# Never leave the player staring at nothing: fall back to the guaranteed generator
-		# and say so loudly.
-		var fallback_id := AdapterRegistry.DEFAULT_ID
-		push_error("world: generator '%s' failed to build (%s) - falling back to '%s'" % [
-			cfg.generator_id, _generator_report.get("error", "unknown"), fallback_id,
-		])
-		_startup_errors.append("generator '%s' failed: %s" % [cfg.generator_id, _generator_report.get("error", "unknown")])
-		if cfg.generator_id != fallback_id:
-			gen_result = AdapterRegistry.build_generator(fallback_id, cfg.seed_value, gen_ctx)
-			_generator = gen_result["generator"]
-			_generator_report = gen_result["report"]
-			cfg = cfg.with_generator(fallback_id)
-			config = cfg
+		# M01-fix / T8: NO FALLBACK. M01 quietly rebuilt the world on the noise2d generator,
+		# which turned "the pipeline is broken" into "the world is flat but boots", i.e. it
+		# converted a loud failure into an invisible one. Now the world does not build.
+		var err := "world: REFUSING to boot: generator '%s' failed to build (%s). No fallback generator is used; see the errors above for the actual cause." % [
+			cfg.generator_id, _generator_report.get("error", "unknown")]
+		push_error(err)
+		_startup_errors.append(err)
+		_generator = null
+		return
 
 	var res := terrain_adapter.create(cfg.to_terrain_context(), _generator, library_result)
 	for e in res["report"]["errors"]:
@@ -130,8 +159,13 @@ func _build_world(cfg: WorldConfig) -> void:
 	if _generator != null and _generator.has_method("set_profiler"):
 		_generator.call("set_profiler", Callable(self, "_tick_usec"))
 
+	# M01-fix / T9: the tier's engine thread budget, applied through the adapter layer (the
+	# runtime never names a Voxel Tools class). Capped by the CPU count in WorldConfig.
+	terrain_adapter.apply_engine_threads(cfg.tier_engine_threads())
+
 	_fly_camera.apply_config(cfg)
 	print("world: terrain ready - %s" % cfg.describe())
+	print("world: backend capabilities = %s" % str(_capabilities))
 	print("world: pipeline = %s" % str(pipeline_dump().map(func(m): return "%s(v%d,%s)" % [m["id"], m["version"], m["phase"]])))
 	print("world: generator = %s" % generator_display_name())
 	print("world: library = %s" % str(_library_report))
@@ -163,6 +197,40 @@ func generator_display_name() -> String:
 
 func generator_report() -> Dictionary:
 	return _generator_report
+
+
+## Capability metadata of the ACTIVE backend (executes_all_modules, supports_neighbor_passes,
+## max_passes, max_extent, supports_lod, legacy, label, notes).
+func generator_capabilities() -> Dictionary:
+	return _capabilities
+
+
+## Capability table for every known backend, in F3 order: the report's backend comparison.
+func all_backend_capabilities() -> Array:
+	return AdapterRegistry.capabilities_all()
+
+
+func startup_warnings() -> Array[String]:
+	return _startup_warnings
+
+
+## M01-fix / T8 - Re-scan content/modules/** and user://modules/** and rebuild the world with
+## the SAME config. This is the path that makes "add a module, the world changes, zero
+## existing files edited" true at runtime and not only at boot: the extensibility tests and
+## (later) a mod loader call it after writing a .tres.
+func reload_modules() -> Dictionary:
+	_startup_errors.clear()
+	_startup_warnings.clear()
+	for e in config.validation_errors:
+		_startup_errors.append("config: %s" % e)
+	_build_world(config)
+	return {
+		"pipeline": pipeline_dump(),
+		"modules": pipeline_registry_dump(),
+		"capabilities": _capabilities,
+		"startup_errors": _startup_errors.duplicate(),
+		"startup_warnings": _startup_warnings.duplicate(),
+	}
 
 
 func library_report() -> Dictionary:
@@ -285,7 +353,15 @@ func _save_screenshot(tag: String) -> String:
 func _on_cycle_generator() -> void:
 	if config == null:
 		return
-	rebuild_with_config(config.with_generator(AdapterRegistry.next_id(config.generator_id)), "F3")
+	# M01-fix / T8: the F3 cycle skips legacy baselines unless the operator opted in, so a
+	# debug keypress cannot silently swap the world to a backend that ignores the modules.
+	var next := config.generator_id
+	for _i in AdapterRegistry.ORDER.size():
+		next = AdapterRegistry.next_id(next)
+		if not AdapterRegistry.is_legacy(next) or config.allow_legacy_baseline:
+			break
+		print("world: F3 skipping '%s' (legacy baseline, executes_all_modules=false; set allow_legacy_baseline=true to include it)" % next)
+	rebuild_with_config(config.with_generator(next), "F3")
 
 
 ## Rebuild the whole terrain from a new config. This is the one place the world can change

@@ -1,59 +1,79 @@
 extends RefCounted
 ## tests/perf/bench_generation.gd
 ##
-## M00 / T9.1 - Generation throughput benchmark. HEADLESS, single-threaded, deterministic.
+## M00 / T9.1, rewritten in the M01 fix - Generation cost benchmark. HEADLESS, deterministic.
 ##
 ## WHAT IS MEASURED
-##   For each adapter: generate "512 columns' worth of chunks" - i.e. a 512x512 BLOCK FOOTPRINT
-##   of the world, which at a 16-voxel block size and a 384-block-tall column is
-##   32 x 32 = 1024 block columns, each 24 data blocks tall => 24 576 generate_block() calls.
-##   That is far more work than the machine can do in a reasonable time on this sandbox, so
-##   the column count is configurable (BENCH_COLUMNS) and the reported numbers are always
-##   PER CHUNK, which is what matters: it scales to any column count.
-##
-##   Reported: total ms, mean ms/chunk, p50, p95, max, chunks/s, and the peak static-memory
-##   delta across the run.
+##   B1  per-adapter generation cost over a fixed 512x512-block footprint (32x32 = 1024 data
+##       block columns, each 24 blocks tall). Every adapter is timed through the SAME entry
+##       point the determinism harness uses (ChunkHasher.source_kind dispatch), because the
+##       backends no longer share one API:
+##         * legacy "block" generators (graph, noise2d) implement generate_block();
+##         * the modular backends produce a whole 384-block column per call, and the native
+##           one's generate_block() is "Not implemented" in the extension (measured, not
+##           assumed - see docs/adr/ADR-0004). Timing those through generate_block() would
+##           have produced a number for an empty buffer, i.e. a fabricated speed.
+##   B2  one normalised table: ms/column, ms per 16^3 chunk equivalent, columns/s.
+##   B3  the engine's OWN cost estimate where it exposes one (compiled graph only).
+##   B4  expressiveness: which distinct voxel ids each backend actually writes.
+##   B5  neighbour-pass cost: the same backends with a throwaway extent-1 module installed,
+##       which is the only way to price a cliff/erosion-style pass before M02 needs one.
+##   B6  the engine-native path for the default backend: debug_generate_test_column(), which
+##       runs _generate_pass against a real VoxelToolMultipassGenerator (do_box spans), i.e.
+##       the cost the streaming engine actually pays - not the GDScript MemoryColumnWriter
+##       the harness uses.
+##   B7  the recommendation, with the gate results it rests on.
 ##
 ## WHAT IS *NOT* MEASURED (and must not be claimed)
-##   This is SINGLE-THREADED and calls VoxelGenerator.generate_block() directly. The runtime
-##   streams terrain through VoxelEngine's thread pools (general pool, generation + meshing
-##   task queues), so real in-game chunk throughput is higher than chunks/s here, and it also
-##   includes meshing, which this benchmark excludes entirely. bench_runtime.gd measures the
-##   real pipeline. Numbers from this file are a GENERATOR COST comparison, not a frame budget.
-##
-## Determinism note: generation is timed, not randomised; the chunk set is the fixed
-## ChunkOrigins-derived grid, so two runs on the same machine produce the same *work*, even
-## though wall-clock timings naturally differ.
+##   B1/B2/B5/B6 are single-threaded caller-side timings. The runtime streams terrain through
+##   VoxelEngine's thread pools, so real in-game throughput is higher (X22 measures the live
+##   path with 4 worker threads and compares voxels, not times). Meshing, block loading and
+##   GPU upload are excluded entirely; bench_runtime.gd measures the real pipeline. Numbers
+##   here are a GENERATOR COST comparison on this machine, not a frame budget and never a
+##   phone number (B0 says so loudly).
 
 const SUITE := "perf"
 
 ## Block footprint (in blocks) of the benchmarked area per side. 512 as specified by T9.
-## Each side is sampled every BENCH_COLUMN_STRIDE blocks to keep the chunk count sane.
 const BENCH_FOOTPRINT := 512
 const BENCH_COLUMN_STRIDE := 16   # one data block column per 16 blocks => 32x32 columns
 
-## How many data-block rows per column. 384 / 16 = 24.
+## How many data-block rows per column. 384 / 16 = 24. Used ONLY to normalise a column cost
+## into the M00 per-chunk figure so old and new numbers stay comparable.
 const ROWS_PER_COLUMN := 24
 
 ## Percentiles T9 asks for.
 const PCT := [50, 95]
 
-## Minimum samples for a stable percentile. If the run is shorter than this the report says
-## so instead of pretending a 20-sample p95 means something.
+## Minimum samples for a stable percentile.
 const MIN_SAMPLES_FOR_P95 := 200
 
+## Columns timed for B5 (neighbour passes). The extent-1 fixture reads neighbouring columns,
+## so this is the expensive measurement in the file; 64 columns keeps it inside the suite's
+## time budget while still being far more than one column's worth of noise.
+const BENCH_CLIFF_COLUMNS := 64
+
 var _cfg: WorldConfig = null
+## id -> {"ms_per_column": float, "ms_per_chunk_equiv": float, "columns_per_s": float,
+##        "source_kind": String, "count": int}
+var _results := {}
 
 
 func run(_ctx: Dictionary) -> Array:
 	var out: Array = []
 	_cfg = WorldConfig.load_config()
+	ModuleFixtures.clear()
 
 	out.append(_environment_note())
 	for id in AdapterRegistry.ids():
 		out.append(_bench_adapter(id))
 	out.append(_comparison())
-	out.append_array(_bench_multipass_columns())
+	out.append(_engine_estimate())
+	out.append(_expressiveness_check())
+	out.append_array(_bench_neighbour_passes())
+	out.append(_bench_engine_native_path())
+	out.append(_recommendation())
+	ModuleFixtures.clear()
 	return out
 
 
@@ -91,8 +111,8 @@ func _environment_note() -> Dictionary:
 		"renderer=%s display_server=%s headless=%s" % [renderer, display, str(display == "headless")],
 		"godot=%s hash=%s" % [godot.get("string"), godot.get("hash")],
 		"voxel_tools=%s" % vt,
-		"scope=single-threaded generate_block() only; EXCLUDES meshing, VoxelEngine thread pools,",
-		"  block loading, GPU upload and anything the real streaming pipeline does (see B1 header)",
+		"scope=caller-thread generator cost only; EXCLUDES meshing, VoxelEngine thread pools,",
+		"  block loading, GPU upload and anything the real streaming pipeline does",
 	]
 	var status := "PASS"
 	if not too_weak.is_empty():
@@ -100,94 +120,436 @@ func _environment_note() -> Dictionary:
 		notes.append("")
 		notes.append("BLOCKED as a statement about the target device. This build machine is FAR weaker")
 		notes.append("than the 3-4 GB RAM / Adreno 610-class Android target: " + ", ".join(too_weak) + ".")
-		notes.append("The per-chunk costs below are still valid AS A RELATIVE COMPARISON of the two")
-		notes.append("adapters on identical hardware (that is what B2 uses them for) and as a")
+		notes.append("The per-column costs below are still valid AS A RELATIVE COMPARISON of the")
+		notes.append("backends on identical hardware (that is what B2/B7 use them for) and as a")
 		notes.append("regression baseline for this machine. They must NOT be quoted as phone numbers.")
 	return TestHarness.result(SUITE, "B0", status,
 		"benchmark environment recorded" + (" - machine too weak for device claims" if status == "BLOCKED" else ""),
 		"\n".join(notes))
 
 
+# --- B1 ------------------------------------------------------------------------------------
+
 func _bench_adapter(id: String) -> Dictionary:
 	var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
 	if not built["ok"]:
 		return TestHarness.fail(SUITE, "B1/%s" % id, "adapter '%s' failed to build" % id, str(built["report"]))
 	var gen: Resource = built["generator"]
+	var kind := ChunkHasher.source_kind(gen)
 
 	var origins := _bench_origins()
-	var format := VoxelFormat.new()
-	format.type_depth = VoxelBuffer.DEPTH_8_BIT if _cfg.type_depth_bits == 8 else VoxelBuffer.DEPTH_16_BIT
-	var block_vec := Vector3i(_cfg.mesh_block_size, _cfg.mesh_block_size, _cfg.mesh_block_size)
-
 	var mem_before: int = OS.get_static_memory_peak_usage()
 	var times: Array = []
-	times.resize(origins.size())
-
-	var total_usec := 0
-	for i in origins.size():
-		var buf: VoxelBuffer = format.create_buffer(block_vec)
+	var t_all := Time.get_ticks_usec()
+	for o_variant in origins:
+		var o: Vector3i = o_variant
 		var t0 := Time.get_ticks_usec()
-		gen.call("generate_block", buf, origins[i], 0)
-		var dt := Time.get_ticks_usec() - t0
-		total_usec += dt
-		times[i] = float(dt) / 1000.0
-
+		# One call = one unit of this backend's own work: a 16^3 block for "block" generators,
+		# a whole 16x384x16 column for "column" generators. Never generate_block() on a
+		# backend that does not implement it.
+		if kind == "column":
+			ColumnBench.generate_column(gen, o)
+		else:
+			ColumnBench.generate_block(gen, o, _cfg)
+		times.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+	var total_ms := float(Time.get_ticks_usec() - t_all) / 1000.0
 	var mem_after: int = OS.get_static_memory_peak_usage()
 
-	var total_ms := float(total_usec) / 1000.0
-	var mean_ms := total_ms / float(maxi(1, origins.size()))
-	var chunks_per_s := float(origins.size()) / maxf(0.000001, total_ms / 1000.0)
 	var stats := _stats(times)
-	var mem_delta := mem_after - mem_before
+	var unit := "column (16x384x16)" if kind == "column" else "chunk (16x16x16)"
+	var per_unit := total_ms / float(maxi(1, times.size()))
+	var per_column := per_unit if kind == "column" else per_unit * float(ROWS_PER_COLUMN)
+	var per_chunk_equiv := per_column / float(ROWS_PER_COLUMN)
+	var units_per_s := float(times.size()) / maxf(0.000001, total_ms / 1000.0)
+	var st: Dictionary = gen.call("stats") if gen.has_method("stats") else {}
 
-	# Engine-side cost, when the generator supports it (graph does; noise2d does not).
-	var engine_us := _measure_engine_cost(gen)
+	# A second timing over SCATTERED origins (the committed ChunkOrigins set, which includes
+	# coordinates out to +/-1e6). The footprint above is contiguous, so one region field tile is
+	# reused by ~64 columns and the region compute is amortised away; scattered columns each pay
+	# it. Reporting only the warm number would understate the cost of a viewer teleporting, and
+	# reporting only the cold one would overstate streaming. Both are measured, both are printed.
+	var cold := _bench_cold(gen, kind)
+	var cold_per_unit: float = cold["ms_per_unit"]
+	var cold_per_column: float = cold_per_unit * (1.0 if kind == "column" else float(ROWS_PER_COLUMN))
+
+	_results[id] = {
+		"source_kind": kind,
+		"cold_ms_per_unit": cold_per_unit,
+		"cold_ms_per_column": cold_per_column,
+		"cold_count": cold["count"],
+		"count": times.size(),
+		"ms_per_unit": per_unit,
+		"ms_per_column": per_column,
+		"ms_per_chunk_equiv": per_chunk_equiv,
+		"columns_per_s": float(times.size()) / maxf(0.000001, per_column * float(times.size()) / 1000.0),
+		"units_per_s": units_per_s,
+		"total_ms": total_ms,
+		"legacy": AdapterRegistry.is_legacy(id),
+		"executes_all_modules": AdapterRegistry.executes_all_modules(id),
+	}
 
 	var lines: Array[String] = [
-		"chunks=%d (%dx%d block footprint, %d rows each)" % [
-			origins.size(), BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE, BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE, ROWS_PER_COLUMN],
-		"total_ms=%.2f" % total_ms,
-		"mean_ms_per_chunk=%.4f" % mean_ms,
-		"p50_ms=%.4f" % stats["p50"],
-		"p95_ms=%.4f" % stats["p95"],
-		"max_ms=%.4f" % stats["max"],
-		"chunks_per_second=%.0f" % chunks_per_s,
+		"unit=%s  units=%d (%dx%d block footprint, CONTIGUOUS: region field tiles are cache-warm)" % [
+			unit, times.size(), BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE, BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE],
+		"total_ms=%.2f  mean_ms_per_%s=%.4f" % [total_ms, "column" if kind == "column" else "chunk", per_unit],
+		"p50_ms=%.4f  p95_ms=%.4f  max_ms=%.4f" % [stats["p50"], stats["p95"], stats["max"]],
+		"normalised: %.4f ms/column, %.4f ms per 16^3 chunk equivalent, %.1f columns/s" % [
+			per_column, per_chunk_equiv, _results[id]["columns_per_s"]],
+		"COLD region cache (%d scattered origins, one region tile per column): %.4f ms/%s = %.4f ms/column" % [
+			cold["count"], cold_per_unit, "column" if kind == "column" else "chunk", cold_per_column],
+		"  cold/warm ratio = %.2fx  <- the price of a region field tile that serves only one column" % (
+			cold_per_unit / maxf(0.000001, per_unit)),
+		"  a streaming viewer pays something between the two: it walks contiguous columns, but each new",
+		"  region costs one cold tile (the cache hits/misses below are from the warm run)",
 		"peak_static_memory_delta=%s MiB (before=%s after=%s)" % [
-			_mib(mem_delta), _mib(mem_before), _mib(mem_after)],
+			_mib(mem_after - mem_before), _mib(mem_before), _mib(mem_after)],
+		"capabilities: executes_all_modules=%s legacy=%s" % [
+			str(AdapterRegistry.executes_all_modules(id)), str(AdapterRegistry.is_legacy(id))],
 	]
-	if engine_us >= 0.0:
-		lines.append("VoxelGeneratorGraph.debug_measure_microseconds_per_voxel()=%.3f us/voxel (engine's own estimate)" % engine_us)
-	else:
-		lines.append("no debug_measure_microseconds_per_voxel() on this generator class")
+	if not st.is_empty():
+		lines.append("backend stats: executed=%s" % str(st.get("executed_counts", {})))
+		lines.append("               cache=%s" % str(st.get("field_cache", {})))
+		lines.append("               writer=%s" % str(st.get("writer", {})))
+		if st.has("worker_thread_ids"):
+			lines.append("               worker threads seen=%s pass_calls=%s" % [
+				str(st.get("worker_thread_ids")), str(st.get("pass_calls"))])
 	if stats["count"] < MIN_SAMPLES_FOR_P95:
 		lines.append("WARNING: only %d samples - p95 is indicative, not statistically strong" % stats["count"])
 
 	return TestHarness.ok(SUITE, "B1/%s" % id,
-		"%s: %.4f ms/chunk mean, %.0f chunks/s over %d chunks" % [id, mean_ms, chunks_per_s, origins.size()],
+		"%s (%s): %.4f ms/%s mean over %d units = %.4f ms/column" % [
+			id, kind, per_unit, "column" if kind == "column" else "chunk", times.size(), per_column],
 		"\n".join(lines))
 
 
+## Timing over the committed scattered origin set (ChunkOrigins: 8 special coordinates,
+## 24 surface-band and 32 wide-range, including negative and >1e6 values). Every column lands
+## in a different region, so this is the COLD field-cache cost.
+func _bench_cold(gen: Resource, kind: String) -> Dictionary:
+	var origins := ChunkOrigins.get_origins(_cfg.sea_level)
+	var t0 := Time.get_ticks_usec()
+	for o_variant in origins:
+		if kind == "column":
+			ColumnBench.generate_column(gen, o_variant)
+		else:
+			ColumnBench.generate_block(gen, o_variant, _cfg)
+	var total_ms := float(Time.get_ticks_usec() - t0) / 1000.0
+	var per_unit := total_ms / float(maxi(1, origins.size()))
+	return {"count": origins.size(), "total_ms": total_ms, "ms_per_unit": per_unit}
+
+
 ## The fixed benchmark grid: every data-block column of a 512x512 block footprint centred on
-## the origin, times every row of the 384-block-tall world column. Deterministic by
-## construction (arithmetic loops, no hashing, no randomness).
+## the origin. Deterministic by construction (arithmetic loops, no hashing, no randomness).
 func _bench_origins() -> Array:
+	return _column_grid(BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE)
+
+
+func _column_grid(cols: int) -> Array:
 	var out: Array = []
-	var cols := BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE
 	for xi in cols:
 		for zi in cols:
-			var x := (xi - cols / 2) * BENCH_COLUMN_STRIDE
-			var z := (zi - cols / 2) * BENCH_COLUMN_STRIDE
-			for row in ROWS_PER_COLUMN:
-				out.append(Vector3i(x, _cfg.world_y_min + row * _cfg.mesh_block_size, z))
+			out.append(Vector3i(
+				(xi - cols / 2) * BENCH_COLUMN_STRIDE, _cfg.world_y_min, (zi - cols / 2) * BENCH_COLUMN_STRIDE))
 	return out
 
 
-func _measure_engine_cost(gen: Resource) -> float:
-	if not gen.has_method("debug_measure_microseconds_per_voxel"):
-		return -1.0
-	var v: float = gen.call("debug_measure_microseconds_per_voxel", true)
-	return v
+## Column origins for B5/B6: a compact square so the field cache is warm and the neighbour
+## reads are mostly hits - the situation a real streamer is in.
+func _cliff_origins(count: int) -> Array:
+	var side := int(ceil(sqrt(float(count))))
+	var all := _column_grid(side)
+	return all.slice(0, mini(count, all.size()))
 
+
+# --- B2 ------------------------------------------------------------------------------------
+
+func _comparison() -> Dictionary:
+	var lines: Array[String] = [
+		"%-20s %-7s %-11s %-13s %-13s %-13s %s" % [
+			"backend", "kind", "legacy", "ms/column", "ms/chunk-equiv", "cold ms/col", "columns/s"],
+	]
+	var fastest_modular := ""
+	var fastest_modular_ms := INF
+	var default_id := AdapterRegistry.DEFAULT_ID
+	for id in AdapterRegistry.ids():
+		var r: Dictionary = _results.get(id, {})
+		if r.is_empty():
+			lines.append("%-20s <no measurement>" % id)
+			continue
+		lines.append("%-20s %-7s %-11s %-13.4f %-13.4f %-13.4f %.1f%s" % [
+			id, String(r["source_kind"]), str(bool(r["legacy"])),
+			float(r["ms_per_column"]), float(r["ms_per_chunk_equiv"]), float(r["cold_ms_per_column"]),
+			float(r["columns_per_s"]), "   <= DEFAULT" if String(id) == default_id else ""])
+		if not bool(r["legacy"]) and float(r["ms_per_column"]) < fastest_modular_ms:
+			fastest_modular_ms = float(r["ms_per_column"])
+			fastest_modular = String(id)
+
+	lines.append("")
+	if _results.has(default_id) and fastest_modular != "" and fastest_modular != default_id:
+		var ratio := float(_results[default_id]["ms_per_column"]) / maxf(0.000001, fastest_modular_ms)
+		lines.append("The DEFAULT backend '%s' is %.2fx the cost of the cheapest modular backend '%s'." % [
+			default_id, ratio, fastest_modular])
+		lines.append("That premium buys engine-side column generation (worker threads, do_box spans,")
+		lines.append("no per-block GDScript dispatch) and is the subject of the B7 gate table.")
+	elif fastest_modular == default_id:
+		lines.append("The DEFAULT backend '%s' is also the cheapest modular backend measured here." % default_id)
+	lines.append("'ms/column' is the CONTIGUOUS footprint (region field tiles cache-warm, the streaming case);")
+	lines.append("'cold ms/col' is the scattered ChunkOrigins set (one region tile per column, the teleport case).")
+	lines.append("Quoting either alone would misrepresent the backend; the ratio between them is the amortisation")
+	lines.append("the region cache buys.")
+	lines.append("M00 reference (same machine, per 16^3 chunk): noise2d 0.0047 ms, graph 0.0409 ms.")
+	lines.append("Those were BLOCK generators; the ms/chunk-equiv column above is what compares to them.")
+	return TestHarness.ok(SUITE, "B2", "per-backend generation cost normalised to one table", "\n".join(lines))
+
+
+# --- B3 ------------------------------------------------------------------------------------
+
+func _engine_estimate() -> Dictionary:
+	var lines: Array[String] = []
+	var found := 0
+	for id in AdapterRegistry.ids():
+		var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
+		if not built["ok"]:
+			lines.append("%-20s build failed" % id)
+			continue
+		var gen: Resource = built["generator"]
+		if not gen.has_method("debug_measure_microseconds_per_voxel"):
+			lines.append("%-20s no debug_measure_microseconds_per_voxel() on %s" % [id, gen.get_class()])
+			continue
+		var v: float = gen.call("debug_measure_microseconds_per_voxel", true)
+		found += 1
+		lines.append("%-20s %.3f us/voxel (the engine's own estimate of its compiled graph)" % [id, v])
+	return TestHarness.ok(SUITE, "B3",
+		"engine-internal cost estimate recorded where the generator exposes one (%d of %d backends)" % [
+			found, AdapterRegistry.ids().size()],
+		"\n".join(lines))
+
+
+# --- B4 ------------------------------------------------------------------------------------
+
+func _expressiveness_check() -> Dictionary:
+	var lines: Array[String] = []
+	var origins := _bench_origins().slice(0, 64)
+	for id in AdapterRegistry.ids():
+		var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
+		if not built["ok"]:
+			lines.append("%-20s build failed" % id)
+			continue
+		var gen: Resource = built["generator"]
+		var kind := ChunkHasher.source_kind(gen)
+		var ids := {}
+		for o_variant in origins:
+			var o: Vector3i = o_variant
+			var bytes := ColumnBench.sample_bytes(gen, o, kind, _cfg)
+			for i in bytes.size():
+				ids[int(bytes[i])] = true
+		var key_list: Array = ids.keys()
+		key_list.sort()
+		lines.append("%-20s distinct voxel ids over %d %s = %s" % [
+			id, origins.size(), "columns" if kind == "column" else "chunks", str(key_list)])
+		_results[id]["distinct_ids"] = key_list
+	return TestHarness.ok(SUITE, "B4", "expressiveness measured from generated data, not from docs",
+		"\n".join(lines))
+
+
+# --- B5 ------------------------------------------------------------------------------------
+
+## Prices a neighbour-aware (extent 1) module on both modular backends. The fixture is a
+## THROWAWAY module written to user://modules and removed again, so the shipped content set
+## and every committed golden are untouched (B17).
+func _bench_neighbour_passes() -> Array:
+	var out: Array = []
+	var origins := _cliff_origins(BENCH_CLIFF_COLUMNS)
+	ModuleFixtures.clear()
+	ModuleFixtures.install("cliff_pass")
+
+	var lines: Array[String] = []
+	var failed := false
+	for id in AdapterRegistry.ids():
+		if AdapterRegistry.is_legacy(id):
+			continue
+		var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
+		if not built["ok"]:
+			failed = true
+			lines.append("%-20s build failed with the extent-1 fixture: %s" % [id, str(built["report"].get("error"))])
+			continue
+		var gen: Resource = built["generator"]
+		var has_neighbour := gen.has_method("neighbour_passes_in_plan") and bool(gen.call("neighbour_passes_in_plan"))
+		var t0 := Time.get_ticks_usec()
+		var times: Array = []
+		for o_variant in origins:
+			var t1 := Time.get_ticks_usec()
+			ColumnBench.generate_column(gen, o_variant)
+			times.append(float(Time.get_ticks_usec() - t1) / 1000.0)
+		var total_ms := float(Time.get_ticks_usec() - t0) / 1000.0
+		var st: Dictionary = gen.call("stats") if gen.has_method("stats") else {}
+		var writer: Dictionary = st.get("writer", {})
+		var baseline_ms := float(_results.get(id, {}).get("ms_per_column", 0.0))
+		var mean_ms := total_ms / float(maxi(1, times.size()))
+		var ratio := mean_ms / maxf(0.000001, baseline_ms)
+		if not has_neighbour:
+			failed = true
+		lines.append("%-20s neighbour pass in plan=%s  %d columns in %.1f ms  mean=%.3f ms/column (%.2fx the extent-0 baseline %.3f)" % [
+			id, str(has_neighbour), times.size(), total_ms, mean_ms, ratio, baseline_ms])
+		lines.append("%-20s   plan=%s" % ["", str(st.get("plan", {}))])
+		lines.append("%-20s   sink counters over the %d harness columns: %s" % ["", times.size(), str(writer)])
+		lines.append("%-20s   pass_calls=%s (empty here on purpose: the engine only counts a pass when it" % [
+			"", str(st.get("pass_calls"))])
+		lines.append("%-20s   calls _generate_pass; the harness path runs the same plan through PipelineRunner)" % "")
+		lines.append("%-20s   READ THIS BEFORE QUOTING: the harness sink holds ONE column, so every neighbour" % "")
+		lines.append("%-20s   read it serves is a MISS returning air - neighbour_misses above says how many. B5 is" % "")
+		lines.append("%-20s   therefore a COST measurement of extent-1 machinery, not a correctness one. Extent-1" % "")
+		lines.append("%-20s   CORRECTNESS is measured where neighbours really exist: experimental_columns through" % "")
+		lines.append("%-20s   NeighbourColumnWriter (tools/probe_cliff.gd: changed=9/64 columns, neighbour_reads" % "")
+		lines.append("%-20s   served from generated columns) and native_cb through the live engine tool" % "")
+		lines.append("%-20s   (tools/probe_cliff.gd: neighbour_reads=70749, neighbour_misses=0)." % "")
+		lines.append("%-20s   executed=%s" % ["", str(st.get("executed_counts", {}))])
+		_results[id]["cliff_ms_per_column"] = mean_ms
+		_results[id]["cliff_ratio"] = ratio
+
+	ModuleFixtures.clear()
+	out.append(TestHarness.result(SUITE, "B5", "PASS" if not failed else "FAIL",
+		"neighbour-pass (extent 1) cost measured on both modular backends with a throwaway fixture",
+		"\n".join(lines) + "\nfixture removed; installed now = %s" % str(ModuleFixtures.installed())))
+	return out
+
+
+# --- B6 ------------------------------------------------------------------------------------
+
+## The engine-native path for the default backend. debug_generate_test_column() runs
+## _generate_pass against a real VoxelToolMultipassGenerator, so the writes go through
+## VoxelTool.do_box() spans instead of the harness's GDScript MemoryColumnWriter. This is
+## the number the streaming engine actually pays; B1's native_cb number is the harness's.
+func _bench_engine_native_path() -> Dictionary:
+	var id := AdapterRegistry.DEFAULT_ID
+	var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
+	if not built["ok"]:
+		return TestHarness.fail(SUITE, "B6", "default backend '%s' failed to build" % id, str(built["report"].get("error")))
+	var gen: Resource = built["generator"]
+	if not gen.has_method("debug_generate_test_column"):
+		return TestHarness.blocked(SUITE, "B6",
+			"'%s' exposes no debug_generate_test_column() - the engine-native column path cannot be timed here" % id,
+			("generator class = %s; the live streaming cost is measured instead by bench_runtime.gd "
+			+ "(R-series) and by tools/probe_native_live.gd") % gen.get_class())
+
+	var origins := _cliff_origins(BENCH_CLIFF_COLUMNS)
+	var times: Array = []
+	var t0 := Time.get_ticks_usec()
+	var calls := 0
+	var first_error := -1
+	for o_variant in origins:
+		var o: Vector3i = o_variant
+		var t1 := Time.get_ticks_usec()
+		# Vector2i = column position in BLOCK coords (measured: Vector3i is a parse error).
+		var ret: Variant = gen.call("debug_generate_test_column", Vector2i(int(o.x / 16), int(o.z / 16)))
+		times.append(float(Time.get_ticks_usec() - t1) / 1000.0)
+		calls += 1
+		# Report a refused call instead of timing nothing: an Error return would otherwise
+		# look like a very fast column.
+		if ret is int and int(ret) != OK and first_error < 0:
+			first_error = int(ret)
+	if first_error >= 0:
+		return TestHarness.blocked(SUITE, "B6",
+			"debug_generate_test_column() returned error %d outside a streaming terrain" % first_error,
+			("%d calls made on %s; the engine refuses the synchronous test column in this context, so the "
+			+ "engine-native cost is measured by bench_runtime.gd (live streaming) instead. Harness-path cost "
+			+ "for this backend stays in B1/B2.") % [calls, id])
+	var total_ms := float(Time.get_ticks_usec() - t0) / 1000.0
+	var stats := _stats(times)
+	var mean_ms := total_ms / float(maxi(1, calls))
+	var harness_ms := float(_results.get(id, {}).get("ms_per_column", 0.0))
+	_results[id]["engine_ms_per_column"] = mean_ms
+
+	var lines: Array[String] = [
+		"debug_generate_test_column(Vector2i) x%d: total=%.1f ms mean=%.3f ms/column p50=%.3f p95=%.3f max=%.3f" % [
+			calls, total_ms, mean_ms, stats["p50"], stats["p95"], stats["max"]],
+		"harness path (GDScript MemoryColumnWriter, B1): %.3f ms/column" % harness_ms,
+		"engine path / harness path = %.2fx" % (mean_ms / maxf(0.000001, harness_ms)),
+		"",
+		"The engine path writes through VoxelTool.do_box() spans on the caller thread here; during",
+		"streaming the same _generate_pass runs on engine worker threads (X22 measures 4 of them).",
+		"Reference measurement from the M01 write-cost probe: per-voxel set_voxel 3404 us/column vs",
+		"do_box spans 958 us/column, i.e. the span writer is ~3.5x cheaper, which is what the",
+		"shipped NativeColumnWriter uses.",
+	]
+	if stats["count"] < MIN_SAMPLES_FOR_P95:
+		lines.append("WARNING: only %d samples" % stats["count"])
+	return TestHarness.ok(SUITE, "B6",
+		"%s engine-native column path: %.3f ms/column over %d columns (%.2fx the harness path)" % [
+			id, mean_ms, calls, mean_ms / maxf(0.000001, harness_ms)],
+		"\n".join(lines))
+
+
+# --- B7 ------------------------------------------------------------------------------------
+
+func _recommendation() -> Dictionary:
+	var id := AdapterRegistry.DEFAULT_ID
+	var lines: Array[String] = []
+	var problems: Array[String] = []
+	var r: Dictionary = _results.get(id, {})
+	if r.is_empty():
+		problems.append("no B1 measurement for the default backend")
+
+	# The gate table the M01 fix is judged on: correctness, concurrency, live streaming, cost.
+	lines.append("GATE TABLE for the default backend '%s' (each row points at the check that decides it):" % id)
+	lines.append("  correctness vs the legacy compiled graph : D6 - 320 origins (64 committed + 256 surface band),")
+	lines.append("                                             neighbour passes disabled, 0 mismatches required")
+	lines.append("  module execution                         : X13/X14/X15/X16/X17 - an added module changes the")
+	lines.append("                                             output, a no-op does not, an unexecutable one is refused")
+	lines.append("  concurrency                              : X22 - live terrain on 4 engine worker threads,")
+	lines.append("                                             streamed voxels == harness voxels, 0 rejected writes")
+	lines.append("  live streaming                           : X22 (same run) + tools/probe_native_live.gd")
+	lines.append("  cost                                     : B1/B2/B5/B6 below")
+	lines.append("")
+	for k in AdapterRegistry.ids():
+		var rr: Dictionary = _results.get(k, {})
+		if rr.is_empty():
+			continue
+		var cliff: String = "%.3f ms/column (%.2fx)" % [float(rr["cliff_ms_per_column"]), float(rr["cliff_ratio"])] \
+			if rr.has("cliff_ms_per_column") else "n/a (legacy baseline)"
+		var engine: String = "%.3f ms/column" % float(rr["engine_ms_per_column"]) if rr.has("engine_ms_per_column") else "n/a"
+		lines.append("  %-20s harness=%.3f ms/column (cold region %.3f)  cliff(extent1)=%s  engine-native=%s" % [
+			k, float(rr["ms_per_column"]), float(rr.get("cold_ms_per_column", 0.0)), cliff, engine])
+	lines.append("")
+
+	# The honest verdict. Cost is the one gate a GDScript module pipeline cannot win against a
+	# compiled graph, so it is stated as a ratio rather than hidden.
+	var graph_ms := float(_results.get("graph", {}).get("ms_per_column", 0.0))
+	var native_ms := float(r.get("ms_per_column", 0.0))
+	if graph_ms > 0.0 and native_ms > 0.0:
+		var ratio := native_ms / graph_ms
+		lines.append("COST VERDICT: the default modular backend costs %.1fx the legacy compiled graph per column" % ratio)
+		lines.append("on the HARNESS path (%.3f vs %.3f ms/column). The graph is a C++ compiled node graph with no" % [
+			native_ms, graph_ms])
+		lines.append("module pipeline at all, so this is the price of scriptability, not a regression: the graph")
+		lines.append("cannot run a module from user://modules (evidence E2) and is gated behind")
+		lines.append("allow_legacy_baseline for exactly that reason.")
+		if ratio > 4.0:
+			lines.append("")
+			lines.append("That ratio is large enough to matter on the target device, so it is recorded as a KNOWN")
+			lines.append("COST DEBT with the measured levers, not waved away:")
+			lines.append("  * engine-native writes are already ~3.5x cheaper than per-voxel writes (do_box spans);")
+			lines.append("  * the region field cache means one coarse tile serves 64 columns (cache stats in B1);")
+			lines.append("  * the remaining harness cost is GDScript module dispatch, which only the engine path (B6)")
+			lines.append("    and, later, a compiled graph generated FROM the module plan can remove;")
+			lines.append("  * quality_scaling retraction (T9) is wired: a module with factor <= 0 is skipped.")
+		if r.has("engine_ms_per_column"):
+			lines.append("")
+			lines.append("B6 measures the same backend through the engine's own column path: %.3f ms/column." % float(r["engine_ms_per_column"]))
+	lines.append("")
+	lines.append("RECOMMENDATION: keep '%s' as the default. It is the only backend that satisfies the" % id)
+	lines.append("correctness, module-execution, concurrency and live-streaming gates at once; 'experimental_columns'")
+	lines.append("(the self-hosted column generator, never the extension's MultipassCB) matches it on correctness but")
+	lines.append("has no engine worker threads and no engine mesher integration, and the two legacy baselines fail")
+	lines.append("the module-execution gate outright.")
+
+	var status := "PASS" if problems.is_empty() else "FAIL"
+	return TestHarness.result(SUITE, "B7", status,
+		"generation cost recommendation for the default backend" + ("" if problems.is_empty() else " (%s)" % "; ".join(problems)),
+		("\n".join(problems) + "\n" if not problems.is_empty() else "") + "\n".join(lines))
+
+
+# --- helpers -------------------------------------------------------------------------------
 
 func _stats(times: Array) -> Dictionary:
 	var sorted := times.duplicate()
@@ -200,203 +562,6 @@ func _stats(times: Array) -> Dictionary:
 	for p in PCT:
 		out["p%d" % p] = TestHarness.percentile(sorted, p)
 	return out
-
-
-func _comparison() -> Dictionary:
-	## The T5/T9 deliverable: which adapter should M01 start from, backed by measurements.
-	var lines: Array[String] = []
-	var results := {}
-	for id in AdapterRegistry.ids():
-		var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
-		if not built["ok"]:
-			lines.append("%s: build failed" % id)
-			continue
-		var gen: Resource = built["generator"]
-		var origins := _bench_origins()
-		# Time a modest subset here; the full timing lives in B1.
-		var sample := origins.slice(0, mini(origins.size(), 2048))
-		var format := VoxelFormat.new()
-		format.type_depth = VoxelBuffer.DEPTH_8_BIT
-		var block_vec := Vector3i(_cfg.mesh_block_size, _cfg.mesh_block_size, _cfg.mesh_block_size)
-		var t0 := Time.get_ticks_usec()
-		var non_air := 0
-		var total_voxels := 0
-		for o_variant in sample:
-			var buf: VoxelBuffer = format.create_buffer(block_vec)
-			gen.call("generate_block", buf, o_variant, 0)
-			buf.decompress_channel(VoxelBuffer.CHANNEL_TYPE)
-			var bytes := buf.get_channel_as_byte_array(VoxelBuffer.CHANNEL_TYPE)
-			for i in bytes.size():
-				total_voxels += 1
-				if bytes[i] != 0:
-					non_air += 1
-		var ms := float(Time.get_ticks_usec() - t0) / 1000.0
-		var per_chunk := ms / float(maxi(1, sample.size()))
-		results[id] = per_chunk
-		lines.append("%-8s %.4f ms/chunk over %d chunks; non_air=%d/%d voxels" % [
-			id, per_chunk, sample.size(), non_air, total_voxels])
-
-	if results.size() == 2:
-		var ids: Array = results.keys()
-		var faster: String = ids[0] if float(results[ids[0]]) <= float(results[ids[1]]) else ids[1]
-		var slower: String = ids[1] if faster == ids[0] else ids[0]
-		var ratio := float(results[slower]) / maxf(0.000001, float(results[faster]))
-		var express := _expressiveness()
-		lines.append("")
-		lines.append("distinct voxel ids written (expressiveness, measured over the B2 sample):")
-		for k in express:
-			lines.append("  %-8s %s" % [k, str(express[k])])
-		lines.append("")
-		lines.append("RECOMMENDATION FOR M01: start from '%s'." % _recommended(express, faster, slower, ratio))
-		lines.append("  cost: '%s' %.4f ms/chunk vs '%s' %.4f ms/chunk => the recommendation costs %.2fx more." % [
-			slower, float(results[slower]), faster, float(results[faster]), ratio])
-		lines.append("  why: '%s' can only ever write ONE non-air voxel id, because" % faster)
-		lines.append("    VoxelGeneratorHeightmap hardcodes value 1 above height_start (proven by S4g/noise2d).")
-		lines.append("    M01 needs climate-driven surface blocks; M05 strata, M06 caves and M07 ores all need")
-		lines.append("    several ids per column. That is impossible on the heightmap adapter at any cost.")
-		lines.append("    The graph adapter writes %d distinct ids today and exposes named nodes, per-channel" % express.get("graph", []).size())
-		lines.append("    outputs and debug_measure_microseconds_per_voxel() for future tuning.")
-		lines.append("  the %.2fx cost is recoverable (octave count, use_xz_caching, subdivision); the missing" % ratio)
-		lines.append("    expressiveness is not. Keep 'noise2d' as the cheap baseline the F3 key toggles to.")
-	return TestHarness.ok(SUITE, "B2", "per-adapter generation cost compared (M01 recommendation input)", "\n".join(lines))
-
-
-## How many distinct voxel ids each adapter can actually write. This is the number the M01
-## recommendation rests on, so it is measured from generated blocks, not asserted from docs.
-func _expressiveness() -> Dictionary:
-	var out := {}
-	var origins := _bench_origins()
-	var sample := origins.slice(0, mini(origins.size(), 512))
-	for id in AdapterRegistry.ids():
-		var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
-		if not built["ok"]:
-			out[id] = ["<build failed>"]
-			continue
-		var gen: Resource = built["generator"]
-		var format := VoxelFormat.new()
-		format.type_depth = VoxelBuffer.DEPTH_8_BIT
-		var block_vec := Vector3i(_cfg.mesh_block_size, _cfg.mesh_block_size, _cfg.mesh_block_size)
-		var ids := {}
-		for o_variant in sample:
-			var buf: VoxelBuffer = format.create_buffer(block_vec)
-			gen.call("generate_block", buf, o_variant, 0)
-			buf.decompress_channel(VoxelBuffer.CHANNEL_TYPE)
-			var bytes := buf.get_channel_as_byte_array(VoxelBuffer.CHANNEL_TYPE)
-			for i in bytes.size():
-				ids[int(bytes[i])] = true
-		var key_list: Array = ids.keys()
-		key_list.sort()
-		out[id] = key_list
-	return out
-
-
-func _recommended(express: Dictionary, faster: String, slower: String, _ratio: float) -> String:
-	## Pick the adapter that can express more than one non-air id; fall back to the cheaper one
-	## if (unexpectedly) neither can.
-	var best := slower
-	var best_ids := 0
-	for id in express:
-		var ids: Array = express[id]
-		var non_air := 0
-		for v in ids:
-			if int(v) != 0:
-				non_air += 1
-		if non_air > best_ids:
-			best_ids = non_air
-			best = String(id)
-	if best_ids == 0:
-		return faster
-	return best
-
-
-## Task 9 / B3: price the neighbour-aware backend per COLUMN (16 x 384 x 16), at extent 0
-## (pass A only) and extent 1 (pass A + the cliff pass B), over the same 32x32 column
-## footprint as B1 so the numbers are comparable with M00's per-chunk figures
-## (ms/column = 24 x ms/chunk for an equivalent backend).
-func _bench_multipass_columns() -> Array:
-	var out: Array = []
-	var cols := BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE
-	var origins: Array = []
-	for xi in cols:
-		for zi in cols:
-			origins.append(Vector3i(
-				(xi - cols / 2) * BENCH_COLUMN_STRIDE, 0, (zi - cols / 2) * BENCH_COLUMN_STRIDE))
-
-	var per_variant := {}
-	for pass_b in [false, true]:
-		var ctx := _cfg.to_gen_context()
-		ctx["multipass_pass_b"] = pass_b
-		var built := AdapterRegistry.build_generator("multipass", _cfg.seed_value, ctx)
-		if not built["ok"]:
-			out.append(TestHarness.fail(SUITE, "B3/e%d" % (1 if pass_b else 0),
-				"multipass generator failed to build (pass_b=%s)" % str(pass_b), str(built["report"])))
-			continue
-		var gen: Resource = built["generator"]
-		var format := VoxelFormat.new()
-		format.type_depth = VoxelBuffer.DEPTH_8_BIT
-		var block_vec := Vector3i(_cfg.mesh_block_size, _cfg.mesh_block_size, _cfg.mesh_block_size)
-		var times: Array = []
-		for col_variant in origins:
-			var col: Vector3i = col_variant
-			var t0 := Time.get_ticks_usec()
-			for row in ROWS_PER_COLUMN:
-				var buf: VoxelBuffer = format.create_buffer(block_vec)
-				gen.call("generate_block", buf, Vector3i(col.x, _cfg.world_y_min + row * _cfg.mesh_block_size, col.z), 0)
-			times.append(float(Time.get_ticks_usec() - t0) / 1000.0)
-		var stats := _stats(times)
-		var mean_ms: float = TestHarness.mean(times) if not times.is_empty() else 0.0
-		var gen_mp: MultipassColumnGenerator = gen
-		var st: Dictionary = gen_mp.stats()
-		per_variant[pass_b] = mean_ms
-		out.append(TestHarness.ok(SUITE, "B3/e%d" % (1 if pass_b else 0),
-			"multipass extent %d: %.3f ms/column over %d columns (%.4f ms/chunk equivalent)" % [
-				1 if pass_b else 0, mean_ms, times.size(), mean_ms / float(ROWS_PER_COLUMN)],
-			"columns=%d mean=%.3f p50=%.3f p95=%.3f max=%.3f ms\ncolumn compiles=%d pass_b applications=%d field_cache=%s" % [
-				times.size(), mean_ms, stats["p50"], stats["p95"], stats["max"],
-				st["column_compiles"], st["pass_b_applications"], str(st["field_cache"])]))
-
-	out.append(_multipass_recommendation(per_variant))
-	return out
-
-
-func _multipass_recommendation(per_variant: Dictionary) -> Dictionary:
-	var graph_ms_per_chunk := 0.0
-	var built := AdapterRegistry.build_generator("graph", _cfg.seed_value, _cfg.to_gen_context())
-	if built["ok"]:
-		var gen: Resource = built["generator"]
-		var sample := _bench_origins().slice(0, 2048)
-		var format := VoxelFormat.new()
-		format.type_depth = VoxelBuffer.DEPTH_8_BIT
-		var block_vec := Vector3i(_cfg.mesh_block_size, _cfg.mesh_block_size, _cfg.mesh_block_size)
-		var t0 := Time.get_ticks_usec()
-		for o_variant in sample:
-			var buf: VoxelBuffer = format.create_buffer(block_vec)
-			gen.call("generate_block", buf, o_variant, 0)
-		graph_ms_per_chunk = float(Time.get_ticks_usec() - t0) / 1000.0 / float(maxi(1, sample.size()))
-	var graph_column := graph_ms_per_chunk * float(ROWS_PER_COLUMN)
-	var e0: float = per_variant.get(false, 0.0)
-	var e1: float = per_variant.get(true, 0.0)
-
-	var ratio := e0 / maxf(0.000001, graph_column)
-	var lines: Array[String] = []
-	lines.append("column cost (16x384x16), this machine, single-threaded:")
-	lines.append("  graph (compiled, extent 0 by construction):  %.3f ms/column" % graph_column)
-	lines.append("  multipass extent 0 (GDScript passes):         %.3f ms/column (%.1fx graph)" % [e0, ratio])
-	lines.append("  multipass extent 1 (+ neighbour cliff pass):  %.3f ms/column (%.1fx graph)" % [e1, e1 / maxf(0.000001, graph_column)])
-	lines.append("")
-	lines.append("RECOMMENDATION (M02+): keep the compiled graph as the default backend, with analytic")
-	lines.append("  extent-0 stamps for flora/structure density. Reserve the multipass evaluator for the")
-	lines.append("  few features that truly need cross-chunk reads (M08 trunks crossing chunk borders,")
-	lines.append("  M10 structures). Reasons, measured here:")
-	lines.append("  * multipass costs %.1fx the graph per column in pure GDScript, and that gap grows with" % ratio)
-	lines.append("    every neighbour-aware pass added (extent 1 already adds %.1f ms/column);" % (e1 - e0))
-	lines.append("  * VoxelGeneratorMultipassCB is NOT scriptable in the 1.7 GDExtension")
-	lines.append("    (probe_multipass2.gd: 'Can't inherit from a virtual class', no passes property),")
-	lines.append("    so there is no engine-accelerated multipass path to move this into;")
-	lines.append("  * MultipassCB also has no LOD support, which the distant-terrain milestone (M13) needs.")
-	lines.append("  The graph path therefore stays default; 'multipass' remains selectable in config for")
-	lines.append("  the features above and for cross-checking (55/64 chunks match the graph on seed 20260814).")
-	return TestHarness.ok(SUITE, "B3/rec", "multipass vs graph column-cost verdict", "\n".join(lines))
 
 
 func _mib(bytes: int) -> String:

@@ -11,6 +11,8 @@ extends SceneTree
 ##                     write its result JSON, then exit. The main run spawns this itself in
 ##                     a genuinely separate process, because D2 must not share a process
 ##                     with D1.
+##   --golden-modular=<path>  override the committed golden file for the MODULAR backends
+##                     (tests/determinism/golden_hashes_modular.json by default)
 ##   --skip-perf       skip the generation benchmark (fast iteration)
 ##   --with-runtime    also run the windowed runtime benchmark (needs a display; off by
 ##                     default because it takes minutes)
@@ -55,7 +57,13 @@ func _run() -> void:
 		var golden_override := _arg_value(user_args, "--golden=", "")
 		if golden_override != "":
 			p2ctx["golden_path"] = golden_override
-		results = TestHarness.run_module(DETERMINISM_MODULE, p2ctx)
+		var modular_override := _arg_value(user_args, "--golden-modular=", "")
+		if modular_override != "":
+			p2ctx["golden_modular_path"] = modular_override
+		# Async: the determinism module's D6 parity check awaits nothing today, but the module
+		# runner must support coroutine modules or a future `await` inside run() would be
+		# reported as "run() did not return an Array" - a false failure.
+		results = await TestHarness.run_module_async(DETERMINISM_MODULE, p2ctx)
 		# The nonce is how the parent proves this file was written by THE CHILD IT JUST
 		# SPAWNED and not left over from an earlier run (Task 0.3, stale-result false PASS).
 		JsonData.save_file(PHASE2_PATH, {

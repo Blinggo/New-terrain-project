@@ -1,10 +1,12 @@
 {
 	"_comment": [
-		"COMMITTED GOLDEN VALUES for the D2 determinism check. Do not edit by hand.",
+		"COMMITTED GOLDEN VALUES for the D2 determinism check, M00 baseline backends. Do not edit by hand.",
 		"Regenerate with: godot --headless --path . --script res://tools/make_golden_hashes.gd",
 		"Hash = FNV-1a/64 over the canonicalised TYPE channel of a 16^3 block, combined",
 		"with block size, channel depth, uniformity and the chunk origin. See",
-		"src/adapters/voxel/chunk_hasher.gd for the exact construction."
+		"src/adapters/voxel/chunk_hasher.gd for the exact construction.",
+		"Both backends here are LEGACY baselines (capabilities.executes_all_modules = false):",
+		"they encode the M00 maths directly and ignore which modules are enabled."
 	],
 	"algorithm": "FNV-1a/64 (src/core/hash64.gd) over TYPE channel bytes + metadata + origin",
 	"block_size": 16,

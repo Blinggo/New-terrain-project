@@ -121,3 +121,38 @@ static func describe(surface_y: int = 64) -> String:
 	return "%d origins = %d special + %d surface-band + %d wide-range; %d with a negative coord, %d beyond +/-1e6" % [
 		o.size(), SPECIAL_COUNT, SURFACE_COUNT, WIDE_COUNT, negative, far,
 	]
+
+
+## M01-fix / T3 (evidence E3) - `count` EXTRA origins inside the surface band, deterministic
+## and independent of get_origins().
+##
+## Why a second set exists: of the 64 committed origins only 24 lie in the band where the
+## surface actually varies (the rest are all-air or all-solid and hash identically for any
+## height rule). Proving "the surface pass uses the exact per-block height, not a
+## nearest-sampled spacing-16 tile" needs a sample big enough that a plateau defect cannot
+## hide: at spacing 16 a wrong-nearest-sample error shows up in roughly half of the columns
+## that straddle a sample boundary, so 256 band origins make a silent regression
+## statistically impossible (the M01 defect was visible in 9 of 64).
+##
+## Deterministic by construction: Hash64 over (index, salt), no randi(), no Dictionary
+## iteration, no machine-specific input. Both the harness and the second process derive the
+## same list, which D2's cross-process comparison depends on.
+static func get_surface_band_origins(count: int, surface_y: int = 64, salt: int = 977) -> Array:
+	var out: Array = []
+	var centre_row := int(floorf(float(surface_y) / float(BLOCK)))
+	for i in maxi(0, count):
+		var h := Hash64.hash_int(i * 15485863 + salt)
+		var row := centre_row - 2 + _mod(int(Hash64.hash_combine(h, 5)), 5)
+		row = clampi(row, WORLD_Y_MIN / BLOCK, (WORLD_Y_MAX_EXCLUSIVE / BLOCK) - 1)
+		var x := _snap(_mod(int(Hash64.hash_combine(h, 11)), 400001) - 200000)
+		var z := _snap(_mod(int(Hash64.hash_combine(h, 12)), 400001) - 200000)
+		out.append(Vector3i(x, row * BLOCK, z))
+	return out
+
+
+## The comparison set for "a modular backend must reproduce the legacy compiled graph":
+## the 64 committed origins plus `extra_band` surface-band origins.
+static func get_graph_parity_origins(surface_y: int = 64, extra_band: int = 256) -> Array:
+	var out := get_origins(surface_y)
+	out.append_array(get_surface_band_origins(extra_band, surface_y))
+	return out

@@ -1,13 +1,13 @@
 {
-	"pid": 38419,
+	"pid": 35540,
 	"results": [
 		{
-			"evidence": "process pid=38419\nnoise2d: 64/64 match\ngraph: 64/64 match\nmultipass: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json + res://tests/determinism/golden_hashes_multipass.json\nenv match: true",
+			"evidence": "process pid=35540\nnoise2d: 64/64 match\ngraph: 64/64 match\nnative_cb: 64/64 match\nexperimental_columns: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json + res://tests/determinism/golden_hashes_modular.json\nenv match: true",
 			"id": "D2",
-			"message": "second process reproduced 192/192 committed golden hashes (0 mismatches)",
+			"message": "second process reproduced 256/256 committed golden hashes (0 mismatches)",
 			"status": "PASS",
 			"suite": "determinism"
 		}
 	],
-	"run_nonce": "n101122493-38400"
+	"run_nonce": "n32689755-35355"
 }

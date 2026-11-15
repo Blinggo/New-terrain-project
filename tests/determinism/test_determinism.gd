@@ -16,6 +16,10 @@ extends RefCounted
 
 const SUITE := "determinism"
 const GOLDEN_PATH := "res://tests/determinism/golden_hashes.json"
+## M01-fix: the modular backends (the ones that execute the resolved pipeline) have their own
+## committed table. Renamed from golden_hashes_multipass.json - see the file's own header.
+const GOLDEN_MODULAR_PATH := "res://tests/determinism/golden_hashes_modular.json"
+const MODULAR_IDS: Array[String] = ["native_cb", "experimental_columns"]
 const BLOCK_SIZE := 16
 
 ## Directories that must never contain non-deterministic calls (hard rule #5).
@@ -48,7 +52,65 @@ func run(ctx: Dictionary) -> Array:
 	out.append(_d5b_empty_layers())
 	out.append(_origin_coverage(origins))
 	out.append(_hash_table(origins))
+	out.append(_d6_graph_parity())
 	return out
+
+
+# --- D6 (M01-fix / T3, evidence E3) ------------------------------------------------------
+
+## The modular backends must reproduce the LEGACY compiled graph EXACTLY - on the 64 committed
+## origins plus 256 extra surface-band origins, with neighbour passes disabled.
+##
+## Why 320 and not 64: of the committed origins only 24 lie in the band where the surface
+## varies, and the M01 defect (a spacing-16 region tile read with nearest sampling, so every
+## block column in a 16x16 column shared one height) was visible in just 9 of 64. A parity
+## claim about "exact per-block height" needs a sample where a plateau cannot hide.
+func _d6_graph_parity() -> Dictionary:
+	var origins := ChunkOrigins.get_graph_parity_origins(_cfg.sea_level, 256)
+	var graph := AdapterRegistry.build_generator("graph", _cfg.seed_value, _cfg.to_gen_context())
+	if not graph["ok"]:
+		return TestHarness.fail(SUITE, "D6", "the legacy graph baseline failed to build, cannot compare",
+			str(graph["report"].get("error", "?")))
+	var detail := ChunkHasher.hash_all_detailed(graph["generator"], origins, BLOCK_SIZE, _cfg.type_depth_bits)
+	var ref := {}
+	var non_uniform := 0
+	for rec in detail:
+		ref[String(rec["key"])] = String(rec["dec"])
+		if not rec["uniform"]:
+			non_uniform += 1
+
+	var lines: Array[String] = [
+		"origins=%d (%d committed + 256 surface-band); %d contain a terrain surface (non-uniform)" % [
+			origins.size(), origins.size() - 256, non_uniform],
+		"reference = legacy 'graph' baseline, freshly generated in this process",
+		"neighbour passes: disabled (content/modules holds only the two shipped modules; no fixtures installed: %s)" % str(ModuleFixtures.installed()),
+	]
+	var failed := false
+	for id in MODULAR_IDS:
+		var built := AdapterRegistry.build_generator(id, _cfg.seed_value, _cfg.to_gen_context())
+		if not built["ok"]:
+			failed = true
+			lines.append("%s: BUILD FAILED %s" % [id, str(built["report"].get("error", "?"))])
+			continue
+		var gen_obj: Object = built["generator"]
+		if gen_obj.has_method("neighbour_passes_in_plan") and bool(gen_obj.call("neighbour_passes_in_plan")):
+			failed = true
+			lines.append("%s: plan contains a neighbour pass, so this comparison is not the extent-0 baseline" % id)
+		var fresh := ChunkHasher.hash_all(gen_obj, origins, BLOCK_SIZE, _cfg.type_depth_bits)
+		var mismatches: Array[String] = []
+		for k in ref:
+			if String(fresh.get(k, "?")) != String(ref[k]):
+				mismatches.append(k)
+		if not mismatches.is_empty():
+			failed = true
+		var executed: Dictionary = gen_obj.call("stats").get("executed_counts", {}) if gen_obj.has_method("stats") else {}
+		lines.append("%s: %d/%d identical to the graph; mismatches=%s; modules executed=%s" % [
+			id, ref.size() - mismatches.size(), ref.size(),
+			str(mismatches.slice(0, 5)), str(executed)])
+
+	return TestHarness.result(SUITE, "D6", "FAIL" if failed else "PASS",
+		"modular backends reproduce the legacy compiled graph on %d origins (%d of them surface-bearing)" % [origins.size(), non_uniform],
+		"\n".join(lines))
 
 
 # --- D1 ---------------------------------------------------------------------------------
@@ -85,16 +147,16 @@ func _d2_second_process(origins: Array, ctx: Dictionary = {}) -> Dictionary:
 			"run: godot --headless --path . --script res://tools/make_golden_hashes.gd")
 
 	var res := GoldenCompare.compare(golden, origins, _cfg, ["noise2d", "graph"])
-	# X11: the multipass backend carries its OWN committed golden set, compared here in the
-	# second process exactly like the M00 backends.
-	var mp_path := "res://tests/determinism/golden_hashes_multipass.json"
+	# X11: the modular backends carry their OWN committed golden set, compared here in the
+	# second process exactly like the M00 baselines.
+	var mp_path := String(ctx.get("golden_modular_path", GOLDEN_MODULAR_PATH))
 	var mp_golden: Dictionary = JsonData.load_file(mp_path)
 	if mp_golden.is_empty():
 		res["ok"] = false
-		res["mismatches"].append("multipass golden file missing: %s" % mp_path)
-		res["per_gen"].append("multipass: no golden file")
+		res["mismatches"].append("modular golden file missing: %s" % mp_path)
+		res["per_gen"].append("modular: no golden file")
 	else:
-		var mp := GoldenCompare.compare(mp_golden, origins, _cfg, ["multipass"])
+		var mp := GoldenCompare.compare(mp_golden, origins, _cfg, MODULAR_IDS)
 		res["checked"] += mp["checked"]
 		res["matched"] += mp["matched"]
 		res["mismatches"].append_array(mp["mismatches"])
@@ -134,14 +196,14 @@ func _d3_order_independence(origins: Array) -> Dictionary:
 			results.append("%s: build failed" % gen_id)
 			continue
 		var target: Vector3i = origins[40]
-		var alone := ChunkHasher.hash_chunk(built["generator"], target, BLOCK_SIZE, _cfg.type_depth_bits)
+		var alone := ChunkHasher.hash_one(built["generator"], target, BLOCK_SIZE, _cfg.type_depth_bits)
 
 		# Same generator instance: generate #0..#39 first, then #40 again. Results are
 		# discarded on purpose - only the ORDER is being tested.
 		var warmed: Resource = built["generator"]
 		for i in 40:
-			ChunkHasher.hash_chunk(warmed, origins[i], BLOCK_SIZE, _cfg.type_depth_bits)
-		var after := ChunkHasher.hash_chunk(warmed, target, BLOCK_SIZE, _cfg.type_depth_bits)
+			ChunkHasher.hash_one(warmed, origins[i], BLOCK_SIZE, _cfg.type_depth_bits)
+		var after := ChunkHasher.hash_one(warmed, target, BLOCK_SIZE, _cfg.type_depth_bits)
 		var ok: bool = alone["hash"] == after["hash"]
 		if not ok:
 			failed = true
@@ -166,11 +228,11 @@ func _d3b_order_independence_surface(origins: Array) -> Dictionary:
 			failed = true
 			lines.append("%s: build failed" % gen_id)
 			continue
-		var alone := ChunkHasher.hash_chunk(built["generator"], target, BLOCK_SIZE, _cfg.type_depth_bits)
+		var alone := ChunkHasher.hash_one(built["generator"], target, BLOCK_SIZE, _cfg.type_depth_bits)
 		var warmed: Resource = built["generator"]
 		for i in ChunkOrigins.FIRST_SURFACE_INDEX + 24:
-			ChunkHasher.hash_chunk(warmed, origins[i], BLOCK_SIZE, _cfg.type_depth_bits)
-		var after := ChunkHasher.hash_chunk(warmed, target, BLOCK_SIZE, _cfg.type_depth_bits)
+			ChunkHasher.hash_one(warmed, origins[i], BLOCK_SIZE, _cfg.type_depth_bits)
+		var after := ChunkHasher.hash_one(warmed, target, BLOCK_SIZE, _cfg.type_depth_bits)
 		var ok: bool = alone["hash"] == after["hash"]
 		if not ok or alone["uniform"]:
 			failed = true

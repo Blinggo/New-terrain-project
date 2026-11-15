@@ -10,8 +10,14 @@ extends RefCounted
 ## samples (1 = per-column exact; 4 = a soft field meant for bilinear reads).
 ## `origin` is the WORLD block coordinate of sample (0, 0), i.e. already shifted by the halo.
 ##
-## Storage is a flat packed array: PackedFloat32Array for FLOAT tiles, PackedInt32Array for
+## Storage is a flat packed array: PackedFloat64Array for FLOAT tiles, PackedInt32Array for
 ## INT tiles. Quantised decisions read INT tiles; continuous maths reads FLOAT tiles.
+##
+## FLOAT is 64-bit ON PURPOSE (M01-fix / T3, evidence E3): GDScript floats are float64, the
+## compiled graph evaluates its height in double precision, and a float32 tile silently
+## rounds a surface height so that a boundary voxel (depth exactly 0 or exactly grass_depth)
+## can flip side. Storing float32 made "exact per-block height" unachievable; storing
+## float64 makes a tile a lossless copy of what the provider computed.
 ##
 ## LAYER: spine. Pure GDScript, no Voxel Tools types (X9 lint).
 
@@ -20,7 +26,7 @@ var width: int = 0                  # samples per side, halo included
 var spacing: float = 1.0
 var origin := Vector2(0.0, 0.0)     # world block coord of sample (0,0)
 var halo: int = 0
-var data_f := PackedFloat32Array()
+var data_f := PackedFloat64Array()
 var data_i := PackedInt32Array()
 
 
@@ -115,7 +121,18 @@ func _at(i: int, j: int) -> float:
 
 
 func memory_bytes() -> int:
-	return (data_f.size() * 4) + (data_i.size() * 4) + 64
+	return (data_f.size() * 8) + (data_i.size() * 4) + 64
+
+
+## True when (wx, wz) lands INSIDE the sampled grid (no clamping needed). Consumers that
+## must not silently read an edge sample - e.g. a feature stamp centred outside the current
+## column - check this first and fall back to a coarser channel instead.
+func covers(wx: float, wz: float) -> bool:
+	if width <= 0:
+		return false
+	var u := u_of(wx)
+	var v := v_of(wz)
+	return u >= -0.5 and u <= float(width - 1) + 0.5 and v >= -0.5 and v <= float(width - 1) + 0.5
 
 
 func dimensions() -> Dictionary:

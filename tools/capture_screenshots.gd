@@ -228,7 +228,7 @@ func _find_cliff_face(world: Node) -> Dictionary:
 	var best_at := Vector2i(0, 0)
 	for gx in range(-20, 21):
 		for gz in range(-20, 21):
-			coarse[Vector2i(gx, gz)] = _col_height(gen, cache, gx * 8, gz * 8)
+			coarse[Vector2i(gx, gz)] = _col_height(gen, cache, gx * 8, gz * 8, cfg)
 	for gx in range(-20, 20):
 		for gz in range(-20, 20):
 			var h0: int = coarse[Vector2i(gx, gz)]
@@ -246,7 +246,7 @@ func _find_cliff_face(world: Node) -> Dictionary:
 	var fine := {}
 	for x in range(cx - 8, cx + 9):
 		for z in range(cz - 8, cz + 9):
-			fine[Vector2i(x, z)] = _col_height(gen, cache, x, z)
+			fine[Vector2i(x, z)] = _col_height(gen, cache, x, z, cfg)
 	var face := Vector2i.ZERO
 	var low := Vector2i.ZERO
 	var drop := 0
@@ -285,12 +285,37 @@ static func coercei(d: Dictionary, k: Vector2i) -> int:
 	return int(d.get(k, 0))
 
 
-## Surface height (top solid voxel y) of one column, read from generated blocks only.
-func _col_height(gen: Resource, cache: Dictionary, x: int, z: int) -> int:
+## Surface height (top solid voxel y) of one column, read from GENERATED voxels only.
+## Dispatches on the backend's own entry point (ChunkHasher.source_kind), because the modular
+## backends produce a whole 384-block column per call and the native multipass class implements
+## generate_block() as "Not implemented": asking it for a block spams engine errors and finds no
+## cliff, which is how shot 03 silently degraded to a top-down fallback.
+func _col_height(gen: Resource, cache: Dictionary, x: int, z: int, cfg: WorldConfig) -> int:
+	var column := _column_writer(gen, cache, x, z, cfg)
+	if column != null:
+		return column.top_solid(x - column.origin.x, z - column.origin.z)
 	for y in range(96, -64, -1):
 		if _voxel_at(gen, cache, x, y, z) != 0:
 			return y
 	return -65
+
+
+## The in-memory column containing world (x, z) for a "column" backend, cached per block column;
+## null for a "block" backend (those go through _voxel_at).
+func _column_writer(gen: Resource, cache: Dictionary, x: int, z: int, cfg: WorldConfig) -> MemoryColumnWriter:
+	if ChunkHasher.source_kind(gen) != "column":
+		return null
+	var col_origin := Vector3i(
+		int(floor(float(x) / 16.0)) * 16, cfg.world_y_min, int(floor(float(z) / 16.0)) * 16)
+	var key := "col:%d,%d" % [col_origin.x, col_origin.z]
+	var cached: MemoryColumnWriter = cache.get(key)
+	if cached == null:
+		cached = gen.call("debug_column_memory", col_origin)
+		if cached == null:
+			push_error("capture_screenshots: %s produced no column for %s" % [gen.get_class(), str(col_origin)])
+			return null
+		cache[key] = cached
+	return cached
 
 
 func _voxel_at(gen: Resource, cache: Dictionary, x: int, y: int, z: int) -> int:

@@ -70,7 +70,24 @@ func get_id() -> String:
 
 
 func get_display_name() -> String:
-	return "VoxelGeneratorGraph (built in code, OutputType -> TYPE)"
+	return "LEGACY M00 baseline: VoxelGeneratorGraph (fixed hills+surface nodes; does NOT execute modules)"
+
+
+func capabilities() -> Dictionary:
+	var caps := super.capabilities()
+	caps["label"] = "legacy M00 baseline (compiled graph)"
+	caps["executes_all_modules"] = false
+	caps["supports_neighbor_passes"] = false
+	caps["max_passes"] = 0
+	caps["max_extent"] = 0
+	caps["max_column_height_blocks"] = 0
+	caps["supports_lod"] = false
+	caps["legacy"] = true
+	caps["notes"] = ("Kept for two reasons: it is the reference the modular backends' goldens are compared "
+		+ "against (64 + 256 origins must match bit-for-bit with neighbour passes disabled), and it is the "
+		+ "cheapest per-column cost measured on this box. It executes exactly the maths its nodes encode; "
+		+ "enabling, disabling or adding a module does not change its output.")
+	return caps
 
 
 func build(seed_value: int, config: Dictionary) -> VoxelGenerator:
@@ -78,6 +95,8 @@ func build(seed_value: int, config: Dictionary) -> VoxelGenerator:
 		"adapter": get_id(),
 		"seed": seed_value,
 		"generator_class": "VoxelGeneratorGraph",
+		"capabilities": capabilities(),
+		"legacy_baseline": true,
 		"node_types_resolved": {},
 		"node_ids": {},
 		"compile_result": null,
@@ -99,32 +118,26 @@ func build(seed_value: int, config: Dictionary) -> VoxelGenerator:
 		return null
 	_report["node_types_resolved"] = t
 
-	# --- M01: parameters come from the RESOLVED MODULE PLAN, not from raw config ----------
-	# The spine resolves content/modules/** + config overrides; this adapter then pushes the
-	# resolved numbers into the named graph nodes below. Structure changed in M01, maths did
-	# not: with the shipped modules the values are byte-identical to M00's gen_params, which
-	# is exactly what X10 (M00 graph goldens reproduce bit-for-bit) verifies.
+	# --- M01-fix: the compiled graph is a LEGACY M00 BASELINE, not a module executor -------
+	# Its nodes encode ONE fixed heightfield + surface rule, so its numbers come from
+	# content/world_config.json's `gen_params` block (the M00 contract) and never from a
+	# module. The first M01 pass pushed resolved module parameters into these nodes, which
+	# made the backend LOOK module-driven while still executing only its own two rules: a
+	# third enabled module changed nothing on screen (the reviewer's evidence E2). Naming a
+	# module here would repeat that lie, so this adapter names none - and says so in machine
+	# readable form: capabilities().executes_all_modules == false, legacy == true, plus the
+	# list of resolved modules it deliberately ignores in the build report. The world refuses
+	# to boot on this backend unless `allow_legacy_baseline` is explicitly true.
 	var pipeline: Dictionary = config.get("pipeline", {})
 	if not pipeline.get("ok", false):
 		pipeline = PipelineBootstrap.build(config)
-	if not pipeline.get("ok", false):
-		push_error("gen_graph_adapter: pipeline failed to resolve: %s" % str(pipeline.get("errors")))
-		_report["warnings"].append("pipeline resolve failed: %s" % str(pipeline.get("errors")))
-		return null
-	var hills: HillsV1 = _module_of(pipeline, &"planet.hills_v1")
-	var surface: GrassStoneV1 = _module_of(pipeline, &"surface.grass_stone_v1")
-	if hills == null or surface == null:
-		push_error("gen_graph_adapter: resolved pipeline lacks planet.hills_v1 / surface.grass_stone_v1 (got %s)" % str(pipeline["scheduler"].pipeline_dump().map(func(m): return m["id"])))
-		_report["warnings"].append("hills/surface modules missing from pipeline")
-		return null
-	_report["pipeline"] = pipeline["scheduler"].pipeline_dump()
-	_report["module_params"] = {
-		"planet.hills_v1": {"noise_frequency": hills.noise_frequency, "noise_octaves": hills.noise_octaves,
-			"noise_lacunarity": hills.noise_lacunarity, "noise_gain": hills.noise_gain,
-			"height_base": hills.height_base, "height_amplitude": hills.height_amplitude},
-		"surface.grass_stone_v1": {"grass_depth": surface.grass_depth, "air_id": surface.air_id,
-			"grass_id": surface.grass_id, "stone_id": surface.stone_id},
-	}
+	if pipeline.get("ok", false):
+		_report["pipeline"] = pipeline["scheduler"].pipeline_dump()
+		_report["ignored_modules"] = (pipeline["modules"] as Array).map(
+			func(m): return String((m as ModuleDefinition).id))
+	else:
+		_report["warnings"].append("pipeline did not resolve (%s); the legacy graph does not need it" % str(pipeline.get("errors")))
+	_report["pipeline_executed"] = false
 
 	# --- noise source ------------------------------------------------------------------
 	# ZN_FastNoiseLite (NOT Godot's FastNoiseLite): the graph node's param is typed
@@ -133,22 +146,29 @@ func build(seed_value: int, config: Dictionary) -> VoxelGenerator:
 	noise.seed = seed_value
 	noise.noise_type = ZN_FastNoiseLite.TYPE_OPEN_SIMPLEX_2
 	noise.fractal_type = ZN_FastNoiseLite.FRACTAL_FBM
-	noise.fractal_octaves = clampi(hills.noise_octaves, 1, 16)
-	noise.fractal_lacunarity = hills.noise_lacunarity
-	noise.fractal_gain = hills.noise_gain
-	var frequency := maxf(hills.noise_frequency, 0.000001)
+	noise.fractal_octaves = clampi(param_int(config, "noise_octaves", 5), 1, 16)
+	noise.fractal_lacunarity = param(config, "noise_lacunarity", 2.0)
+	noise.fractal_gain = param(config, "noise_gain", 0.5)
+	var frequency := maxf(param(config, "noise_frequency", 0.0035), 0.000001)
 	noise.period = 1.0 / frequency
 
-	# --- terrain shape -----------------------------------------------------------------
-	var height_base := hills.height_base
-	var height_amplitude := maxf(hills.height_amplitude, 1.0)
+	# --- terrain shape (M00 gen_params) ------------------------------------------------
+	var height_base := param(config, "height_base", 64.0)
+	var height_amplitude := maxf(param(config, "height_amplitude", 42.0), 1.0)
 	var height_min := height_base - height_amplitude * 0.5
 	var height_max := height_base + height_amplitude * 0.5
-	var grass_depth := float(surface.grass_depth)
+	var grass_depth := float(param_int(config, "grass_depth", 3))
 
-	var air_id := float(surface.air_id)
-	var grass_id := float(surface.grass_id)
-	var stone_id := float(surface.stone_id)
+	var air_id := float(param_int(config, "air_id", 0))
+	var grass_id := float(param_int(config, "grass_id", 1))
+	var stone_id := float(param_int(config, "stone_id", 3))
+	_report["gen_params_used"] = {
+		"noise_frequency": frequency, "noise_octaves": noise.fractal_octaves,
+		"noise_lacunarity": noise.fractal_lacunarity, "noise_gain": noise.fractal_gain,
+		"height_base": height_base, "height_amplitude": height_amplitude,
+		"grass_depth": grass_depth, "air_id": int(air_id), "grass_id": int(grass_id),
+		"stone_id": int(stone_id),
+	}
 
 	# --- nodes (explicit ids so the graph is reproducible and findable) -----------------
 	var id_noise := fn.create_node(t["FastNoise2D"], Vector2(60, 40), 1)
@@ -258,13 +278,6 @@ func _resolve_node_types(fn: VoxelGraphFunction) -> Dictionary:
 			return {}
 		out[wanted] = int(by_name[wanted])
 	return out
-
-
-static func _module_of(pipeline: Dictionary, id: StringName):
-	for m in pipeline["modules"]:
-		if (m as ModuleDefinition).id == id:
-			return m
-	return null
 
 
 func get_last_build_report() -> Dictionary:

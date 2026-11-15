@@ -14,16 +14,42 @@ extends RefCounted
 
 const DEFAULT_PATH := "res://content/world_config.json"
 const VALID_TIERS: Array[String] = ["low", "medium", "high"]
-const VALID_GENERATORS: Array[String] = ["noise2d", "graph", "multipass"]
+## M01-fix: `native_cb` (the engine's own multipass callback, running the resolved module
+## pipeline) is the default. `multipass` is GONE as an id: that backend was self-hosted and
+## never the extension's MultipassCB, so it is now `experimental_columns`. `graph` and
+## `noise2d` are frozen M00 baselines that do not execute modules; booting a world on one
+## requires `allow_legacy_baseline` (see below).
+const VALID_GENERATORS: Array[String] = ["native_cb", "graph", "noise2d", "experimental_columns"]
+const DEFAULT_GENERATOR := "native_cb"
 
-## M01 / Task 7 - quality tiers now own CONCRETE budgets instead of being a label.
-## low/medium/high view chunks and field-cache budgets are the numbers the task fixed;
-## instance_density and max_gen_tasks_per_frame for medium/high are our documented choices
-## (low's 0.4 / 2 are the task's). Anything a tier does not fix stays a separate knob.
+## M01 / Task 7 - quality tiers own CONCRETE budgets instead of being a label.
+## M01-fix / T9 - every budget is now either WIRED or explicitly retracted, with the reason
+## in TIER_BUDGET_STATUS (printed into the report, so a number in a config cannot pretend to
+## do something it does not):
+##   view_chunks              WIRED   effective_view_distance_chunks() -> VoxelViewer
+##   field_cache_mb           WIRED   FieldCache budget (bytes) -> eviction
+##   engine_threads           WIRED   VoxelEngine.set_thread_count(), capped by the CPU count
+##   instance_density         UNUSED  no instanced features exist in M01 (trees are M08). The
+##                                    number stays so M08 inherits the tier contract; the
+##                                    report says "unused", not "wired".
+##   max_gen_tasks_per_frame  BLOCKED the extension exposes no per-frame task budget:
+##                                    VoxelEngine has only get/set_thread_count and get_stats
+##                                    (verified tools/probe_native_cb7.gd). engine_threads is
+##                                    the closest real lever and it is wired instead.
+##   module quality_scaling   WIRED   a module whose factor for the active tier is <= 0 is
+##                                    skipped by the executor and the skip is reported.
 const TIER_BUDGETS := {
-	"low":    {"view_chunks": 6,  "field_cache_mb": 24, "instance_density": 0.4, "max_gen_tasks_per_frame": 2},
-	"medium": {"view_chunks": 8,  "field_cache_mb": 48, "instance_density": 0.7, "max_gen_tasks_per_frame": 4},
-	"high":   {"view_chunks": 12, "field_cache_mb": 96, "instance_density": 1.0, "max_gen_tasks_per_frame": 8},
+	"low":    {"view_chunks": 6,  "field_cache_mb": 24, "instance_density": 0.4, "max_gen_tasks_per_frame": 2, "engine_threads": 2},
+	"medium": {"view_chunks": 8,  "field_cache_mb": 48, "instance_density": 0.7, "max_gen_tasks_per_frame": 4, "engine_threads": 4},
+	"high":   {"view_chunks": 12, "field_cache_mb": 96, "instance_density": 1.0, "max_gen_tasks_per_frame": 8, "engine_threads": 8},
+}
+const TIER_BUDGET_STATUS := {
+	"view_chunks": "wired (VoxelViewer.view_distance)",
+	"field_cache_mb": "wired (FieldCache budget_bytes)",
+	"engine_threads": "wired (VoxelEngine.set_thread_count, capped by OS.get_processor_count())",
+	"instance_density": "UNUSED in M01 - no instanced features exist yet (trees are M08)",
+	"max_gen_tasks_per_frame": "BLOCKED - the extension exposes no per-frame generation task budget (VoxelEngine has only get/set_thread_count and get_stats); engine_threads is the wired analogue",
+	"quality_scaling": "wired (a module with factor <= 0 for the tier is skipped and reported)",
 }
 const VIEW_DISTANCE_CYCLE: Array[int] = [6, 8, 12]
 
@@ -36,7 +62,19 @@ var sea_level: int = 64
 var quality_tier: String = "low"
 
 # --- what to build --------------------------------------------------------------------
-var generator_id: String = "noise2d"
+var generator_id: String = DEFAULT_GENERATOR
+## M01-fix / T8 - Fail closed. `graph` and `noise2d` are legacy M00 baselines that execute
+## their own fixed maths and IGNORE which modules are enabled. Selecting one is allowed (they
+## are the golden reference and the cheapest backend measured) but only when this flag says
+## the operator knows it: otherwise the world refuses to boot with an error that names the
+## backend, the capability it lacks and the two ways forward. Default false.
+var allow_legacy_baseline: bool = false
+## Debug flag, default false: when true a build error in the module pipeline is reported but
+## the world still boots on the legacy graph baseline. Exists so the M00 comparison can be
+## reproduced while a module is broken; it never hides the error, it only stops it from being
+## fatal. Fail-closed is the default because a silently flat world is the bug class this
+## project is built to prevent.
+var allow_broken_pipeline: bool = false
 ## >0 = explicit override of the tier's default view distance; <=0 = "use the tier default".
 ## M01 / Task 7: the tier owns the budget, the config may override it, and the HUD says
 ## which one won (view_distance_source).
@@ -89,7 +127,9 @@ static func load_config(path: String = DEFAULT_PATH) -> WorldConfig:
 	cfg.worldgen_version = JsonData.get_int(data, "worldgen_version", 1)
 	cfg.modules_overrides = JsonData.get_dict(data, "modules")
 	cfg.seed_value = JsonData.get_int(data, "seed", 0)
-	cfg.generator_id = JsonData.get_string(data, "generator", "noise2d")
+	cfg.generator_id = JsonData.get_string(data, "generator", DEFAULT_GENERATOR)
+	cfg.allow_legacy_baseline = JsonData.get_bool(data, "allow_legacy_baseline", false)
+	cfg.allow_broken_pipeline = JsonData.get_bool(data, "allow_broken_pipeline", false)
 	cfg.view_distance_chunks = JsonData.get_int(data, "view_distance_chunks", 8)
 	cfg.block_size = JsonData.get_float(data, "block_size", 1.0)
 	cfg.world_y_min = JsonData.get_int(data, "world_y_min", -64)
@@ -131,6 +171,10 @@ func _validate() -> void:
 		validation_errors.append("quality_tier '%s' must be one of %s" % [quality_tier, str(VALID_TIERS)])
 	if not generator_id in VALID_GENERATORS:
 		validation_errors.append("generator '%s' must be one of %s" % [generator_id, str(VALID_GENERATORS)])
+	if generator_id in AdapterRegistry.LEGACY_IDS and not allow_legacy_baseline:
+		validation_errors.append(
+			"generator '%s' is a legacy M00 baseline: it executes its own fixed maths and IGNORES which modules are enabled (capabilities.executes_all_modules = false). Either use '%s' (the module pipeline backend), or set \"allow_legacy_baseline\": true in %s to say you know the modules will not run."
+			% [generator_id, DEFAULT_GENERATOR, source_path if source_path != "" else DEFAULT_PATH])
 	if view_distance_chunks < 0:
 		validation_errors.append(
 			"view_distance_chunks must be >= 0 (0 or omitted = use the quality tier default; got %d)"
@@ -187,6 +231,15 @@ func tier_max_gen_tasks_per_frame() -> int:
 	return int(tier_budget()["max_gen_tasks_per_frame"])
 
 
+## Engine generation/meshing threads this tier asks for, capped by the machine.
+func tier_engine_threads() -> int:
+	return clampi(int(tier_budget().get("engine_threads", 2)), 1, maxi(1, OS.get_processor_count()))
+
+
+func tier_budget_status() -> Dictionary:
+	return TIER_BUDGET_STATUS.duplicate()
+
+
 ## The view distance the world actually streams at: config override if set, else tier.
 func effective_view_distance_chunks() -> int:
 	return view_distance_chunks if view_distance_chunks > 0 else tier_view_distance_chunks()
@@ -207,6 +260,8 @@ func clone() -> WorldConfig:
 	c.sea_level = sea_level
 	c.quality_tier = quality_tier
 	c.generator_id = generator_id
+	c.allow_legacy_baseline = allow_legacy_baseline
+	c.allow_broken_pipeline = allow_broken_pipeline
 	c.view_distance_chunks = view_distance_chunks
 	c.gen_params = gen_params.duplicate(true)
 	c.worldgen_version = worldgen_version
@@ -267,6 +322,9 @@ func to_gen_context() -> Dictionary:
 		"sea_level": sea_level,
 		"block_size": block_size,
 		"mesh_block_size": mesh_block_size,
+		"allow_legacy_baseline": allow_legacy_baseline,
+		"allow_broken_pipeline": allow_broken_pipeline,
+		"engine_threads": tier_engine_threads(),
 	}
 
 
@@ -288,7 +346,8 @@ func to_terrain_context() -> Dictionary:
 
 
 func describe() -> String:
-	return "seed=%d gen=%s vd=%d (vratio=%.2f) y=[%d,%d) h=%d sea=%d tier=%s block=%fm mesh=%d" % [
-		seed_value, generator_id, view_distance_chunks, view_distance_vertical_ratio,
+	return "seed=%d gen=%s%s vd=%d (vratio=%.2f) y=[%d,%d) h=%d sea=%d tier=%s block=%fm mesh=%d" % [
+		seed_value, generator_id, " (legacy baseline)" if generator_id in AdapterRegistry.LEGACY_IDS else "",
+		view_distance_chunks, view_distance_vertical_ratio,
 		world_y_min, world_y_max, world_height(), sea_level, quality_tier, block_size, mesh_block_size,
 	]

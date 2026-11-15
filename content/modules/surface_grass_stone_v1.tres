@@ -7,12 +7,21 @@ script = ExtResource("1_surf")
 id = &"surface.grass_stone_v1"
 version = 1
 enabled = true
-phase = 3
+phase_order = 3
+phase_name = &"SURFACE"
 priority = 10
-requires = Array[StringName]([&"field.height"])
+requires = Array[StringName]([&"field.height_exact"])
 provides = Array[StringName]([])
+channel_declarations = {
+&"field.height_exact": {
+"scope": "column",
+"type": "TILE_FLOAT",
+"version": 1
+}
+}
 params = {}
 quality_scaling = {}
+noise_sampler = {}
 grass_depth = 3
 air_id = 0
 grass_id = 1

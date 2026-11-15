@@ -92,3 +92,117 @@ static func to_hex(value: int) -> String:
 ## no dependence on formatting flags, diff-friendly.
 static func to_dec(value: int) -> String:
 	return str(value)
+
+
+## M01-fix / T5 - Deterministic fingerprint of an arbitrary Variant graph (used for module
+## parameter fingerprints in cache keys and build reports).
+##
+## Rules that make it stable across processes and machines:
+##   * Dictionary keys are SORTED before hashing, so insertion order cannot matter.
+##   * float and int are hashed through their canonical decimal string form, so 3 and 3.0
+##     differ (they are different parameters) but 0.1 always hashes the same.
+##   * Arrays hash in order; PackedArrays hash their bytes.
+##   * Anything else (Object/Resource/Callable/...) hashes its type name plus, for
+##     Resources, their class + resource path, never an instance address. Addresses would
+##     make the fingerprint change between runs and silently invalidate every cache.
+## Returns 0 only for a null value.
+static func hash_variant(value: Variant) -> int:
+	var h := FNV64_OFFSET_BASIS
+	return _hash_variant_into(h, value, 0)
+
+
+static func _hash_variant_into(h: int, value: Variant, depth: int) -> int:
+	if depth > 32:
+		return hash_combine(h, hash_string("<too_deep>"))
+	match typeof(value):
+		TYPE_NIL:
+			return hash_combine(h, hash_string("nil"))
+		TYPE_BOOL:
+			return hash_combine(h, hash_string("b:%s" % ("1" if bool(value) else "0")))
+		TYPE_INT:
+			return hash_combine(h, hash_string("i:%d" % int(value)))
+		TYPE_FLOAT:
+			return hash_combine(h, hash_string("f:%s" % str(float(value))))
+		TYPE_STRING:
+			return hash_combine(h, hash_string("s:%s" % String(value)))
+		TYPE_STRING_NAME:
+			return hash_combine(h, hash_string("n:%s" % String(value)))
+		TYPE_NODE_PATH:
+			return hash_combine(h, hash_string("p:%s" % String(value)))
+		TYPE_VECTOR2:
+			var v2: Vector2 = value
+			return hash_combine(h, hash_string("v2:%s,%s" % [str(v2.x), str(v2.y)]))
+		TYPE_VECTOR2I:
+			var v2i: Vector2i = value
+			return hash_combine(h, hash_string("v2i:%d,%d" % [v2i.x, v2i.y]))
+		TYPE_VECTOR3:
+			var v3: Vector3 = value
+			return hash_combine(h, hash_string("v3:%s,%s,%s" % [str(v3.x), str(v3.y), str(v3.z)]))
+		TYPE_VECTOR3I:
+			var v3i: Vector3i = value
+			return hash_combine(h, hash_string("v3i:%d,%d,%d" % [v3i.x, v3i.y, v3i.z]))
+		TYPE_VECTOR4, TYPE_VECTOR4I:
+			return hash_combine(h, hash_string("v4:%s" % str(value)))
+		TYPE_RECT2, TYPE_RECT2I:
+			return hash_combine(h, hash_string("r2:%s" % str(value)))
+		TYPE_COLOR:
+			var c: Color = value
+			return hash_combine(h, hash_string("c:%s,%s,%s,%s" % [str(c.r), str(c.g), str(c.b), str(c.a)]))
+		TYPE_PACKED_BYTE_ARRAY:
+			var pb: PackedByteArray = value
+			return hash_combine(h, hash_bytes(pb))
+		TYPE_PACKED_INT32_ARRAY:
+			var pi: PackedInt32Array = value
+			var acc := h
+			for x in pi:
+				acc = hash_combine(acc, hash_int(x))
+			return hash_combine(acc, hash_string("pi32"))
+		TYPE_PACKED_INT64_ARRAY:
+			var pi64: PackedInt64Array = value
+			var acc64 := h
+			for x in pi64:
+				acc64 = hash_combine(acc64, hash_int(int(x)))
+			return hash_combine(acc64, hash_string("pi64"))
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var pf: PackedFloat32Array = value
+			var accf := h
+			for x in pf:
+				accf = hash_combine(accf, hash_string(str(float(x))))
+			return hash_combine(accf, hash_string("pf32"))
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var pf64: PackedFloat64Array = value
+			var accf64 := h
+			for x in pf64:
+				accf64 = hash_combine(accf64, hash_string(str(float(x))))
+			return hash_combine(accf64, hash_string("pf64"))
+		TYPE_PACKED_STRING_ARRAY:
+			var ps: PackedStringArray = value
+			var accs := h
+			for x in ps:
+				accs = hash_combine(accs, hash_string(String(x)))
+			return hash_combine(accs, hash_string("ps"))
+		TYPE_ARRAY:
+			var arr: Array = value
+			var acca := hash_combine(h, hash_string("arr:%d" % arr.size()))
+			for x in arr:
+				acca = _hash_variant_into(acca, x, depth + 1)
+			return acca
+		TYPE_DICTIONARY:
+			var d: Dictionary = value
+			var keys: Array = d.keys()
+			keys.sort_custom(func(a, b): return str(a) < str(b))
+			var accd := hash_combine(h, hash_string("dict:%d" % keys.size()))
+			for k in keys:
+				accd = hash_combine(accd, hash_string("k:%s" % str(k)))
+				accd = _hash_variant_into(accd, d[k], depth + 1)
+			return accd
+		TYPE_OBJECT:
+			var obj := value as Object
+			if obj == null:
+				return hash_combine(h, hash_string("obj:null"))
+			if obj is Resource:
+				var res := obj as Resource
+				return hash_combine(h, hash_string("res:%s@%s" % [res.get_class(), res.resource_path]))
+			return hash_combine(h, hash_string("obj:%s" % obj.get_class()))
+		_:
+			return hash_combine(h, hash_string("t%d:%s" % [typeof(value), str(value)]))

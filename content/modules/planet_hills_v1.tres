@@ -7,16 +7,30 @@ script = ExtResource("1_hills")
 id = &"planet.hills_v1"
 version = 1
 enabled = true
-phase = 0
+phase_order = 0
+phase_name = &"PLANET"
 priority = 10
 requires = Array[StringName]([])
-provides = Array[StringName]([&"field.height"])
+provides = Array[StringName]([&"field.height", &"field.height_exact"])
+channel_declarations = {
+&"field.height": {
+"scope": "region",
+"type": "TILE_FLOAT",
+"version": 1
+},
+&"field.height_exact": {
+"scope": "column",
+"type": "TILE_FLOAT",
+"version": 1
+}
+}
 params = {}
 quality_scaling = {
 "high": 1.0,
 "low": 0.5,
 "medium": 1.0
 }
+noise_sampler = {}
 noise_frequency = 0.0035
 noise_octaves = 5
 noise_lacunarity = 2.0

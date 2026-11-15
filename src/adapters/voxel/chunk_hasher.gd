@@ -17,18 +17,71 @@ extends RefCounted
 ## Godot's built-in hash() is NOT used anywhere: it is not guaranteed stable across engine
 ## versions, and golden values must outlive an engine upgrade.
 
-## Hash one chunk. Returns:
+## How a generator's output reaches the hasher:
+##   "block"  - VoxelGenerator.generate_block(buffer, origin, lod) fills a 16^3 buffer
+##              (noise2d, graph: the legacy M00 baselines).
+##   "column" - the generator exposes debug_column_memory(column_origin) and produces a whole
+##              16 x world_height x 16 column (the modular multipass backends). Verified in
+##              M01-fix: VoxelGeneratorMultipassCB.generate_block() is "Not implemented" and
+##              does NOT route to _generate_block_fallback (tools/probe_native_cb8.gd), so a
+##              column generator cannot be hashed through generate_block at all.
+static func source_kind(generator: Resource) -> String:
+	if generator != null and generator.has_method("debug_column_memory"):
+		return "column"
+	return "block"
+
+
+static func make_buffer(block_size: int, type_depth_bits: int) -> VoxelBuffer:
+	var format := VoxelFormat.new()
+	format.type_depth = VoxelBuffer.DEPTH_8_BIT if type_depth_bits <= 8 else VoxelBuffer.DEPTH_16_BIT
+	return format.create_buffer(Vector3i(block_size, block_size, block_size))
+
+
+## Hash one chunk, dispatching on the generator's source kind. Both paths canonicalise into
+## the SAME VoxelBuffer, so a hash means the same thing whichever backend produced it.
+static func hash_one(generator: Resource, origin: Vector3i, block_size: int = 16, type_depth_bits: int = 8) -> Dictionary:
+	if source_kind(generator) == "column":
+		var column: MemoryColumnWriter = generator.call("debug_column_memory", Vector3i(origin.x, origin.y, origin.z))
+		if column == null:
+			push_error("chunk_hasher: generator returned no column memory for origin %s" % str(origin))
+			return {}
+		return hash_column_slice(column, origin, block_size, type_depth_bits)
+	return hash_chunk(generator, origin, block_size, type_depth_bits)
+
+
+## Hash one chunk from generate_block(). Returns:
 ##   {"hash": int, "hex": String, "dec": String, "bytes": int, "uniform": bool,
 ##    "depth": int, "origin": Vector3i, "non_air": int, "value_histogram": Dictionary}
 static func hash_chunk(generator: Resource, origin: Vector3i, block_size: int = 16, type_depth_bits: int = 8) -> Dictionary:
-	var format := VoxelFormat.new()
-	format.type_depth = VoxelBuffer.DEPTH_8_BIT if type_depth_bits <= 8 else VoxelBuffer.DEPTH_16_BIT
-
-	var buffer: VoxelBuffer = format.create_buffer(Vector3i(block_size, block_size, block_size))
+	var buffer := make_buffer(block_size, type_depth_bits)
 	# The generator is the only source of data. No time, no randomness, no position of any
 	# player, no frame count.
 	generator.call("generate_block", buffer, origin, 0)
+	return hash_buffer(buffer, origin, block_size)
 
+
+## Hash the 16^3 slice of an in-memory column that starts at `origin`. The slice is copied
+## into a real VoxelBuffer with set_voxel(value, x, y, z, channel) so the canonicalisation
+## (and therefore the hash) is identical to the generate_block path.
+static func hash_column_slice(column: MemoryColumnWriter, origin: Vector3i, block_size: int = 16, type_depth_bits: int = 8) -> Dictionary:
+	var buffer := make_buffer(block_size, type_depth_bits)
+	var col_bounds: Array = column.bounds_main()
+	var col_min: Vector3i = col_bounds[0]
+	var col_max: Vector3i = col_bounds[1]
+	if origin.x < col_min.x or origin.z < col_min.z or origin.y < col_min.y \
+			or origin.x + block_size > col_max.x or origin.z + block_size > col_max.z or origin.y + block_size > col_max.y:
+		push_error("chunk_hasher: block origin %s is outside the generated column %s..%s" % [str(origin), str(col_min), str(col_max)])
+	for y in block_size:
+		for z in block_size:
+			for x in block_size:
+				var v := column.get_type_world(origin + Vector3i(x, y, z))
+				buffer.set_voxel(v, x, y, z, VoxelBuffer.CHANNEL_TYPE)
+	return hash_buffer(buffer, origin, block_size)
+
+
+## The canonical fingerprint of a filled buffer. Split out so both source kinds share ONE
+## construction and a hash can never mean two different things.
+static func hash_buffer(buffer: VoxelBuffer, origin: Vector3i, block_size: int) -> Dictionary:
 	var uniform := buffer.is_uniform(VoxelBuffer.CHANNEL_TYPE)
 	# Canonicalise: expand a uniform channel to its full size before hashing.
 	if uniform:
@@ -81,7 +134,7 @@ static func hash_chunk(generator: Resource, origin: Vector3i, block_size: int = 
 static func hash_all(generator: Resource, origins: Array, block_size: int = 16, type_depth_bits: int = 8) -> Dictionary:
 	var out := {}
 	for o in origins:
-		var r := hash_chunk(generator, o, block_size, type_depth_bits)
+		var r := hash_one(generator, o, block_size, type_depth_bits)
 		out[ChunkOrigins.origin_to_key(o)] = r["dec"]
 	return out
 
@@ -90,7 +143,7 @@ static func hash_all(generator: Resource, origins: Array, block_size: int = 16, 
 static func hash_all_detailed(generator: Resource, origins: Array, block_size: int = 16, type_depth_bits: int = 8) -> Array:
 	var out := []
 	for o in origins:
-		var r := hash_chunk(generator, o, block_size, type_depth_bits)
+		var r := hash_one(generator, o, block_size, type_depth_bits)
 		r["key"] = ChunkOrigins.origin_to_key(o)
 		out.append(r)
 	return out

@@ -35,7 +35,20 @@ func get_id() -> String:
 
 
 func get_display_name() -> String:
-	return "Noise2D heightmap (built-in VoxelGeneratorNoise2D)"
+	return "LEGACY M00 baseline: Noise2D heightmap (built-in VoxelGeneratorNoise2D; does NOT execute modules)"
+
+
+func capabilities() -> Dictionary:
+	var caps := super.capabilities()
+	caps["label"] = "legacy M00 baseline (engine noise2d heightmap)"
+	caps["executes_all_modules"] = false
+	caps["supports_neighbor_passes"] = false
+	caps["supports_lod"] = false
+	caps["legacy"] = true
+	caps["notes"] = ("The engine's own heightmap generator: one hardcoded voxel id, no module pipeline. Kept as "
+		+ "the cheapest reference and as the M00 golden comparison; it was M01's silent fallback target, which "
+		+ "the fail-closed boot now forbids (a broken pipeline must be loud, not quietly flat).")
+	return caps
 
 
 func build(seed_value: int, config: Dictionary) -> VoxelGenerator:
@@ -43,6 +56,8 @@ func build(seed_value: int, config: Dictionary) -> VoxelGenerator:
 		"adapter": get_id(),
 		"seed": seed_value,
 		"generator_class": "VoxelGeneratorNoise2D",
+		"capabilities": capabilities(),
+		"legacy_baseline": true,
 		"noise_class": "FastNoiseLite",
 		"warnings": [],
 	}

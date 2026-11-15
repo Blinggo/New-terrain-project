@@ -1,12 +1,12 @@
 {
 	"blocked": 3,
-	"elapsed_seconds": 223.098,
+	"elapsed_seconds": 49.544,
 	"exit_code": 0,
 	"fail": 0,
 	"godot": "4.7.2-stable (official)",
 	"headless": false,
 	"os": "Linux",
-	"pass": 108,
+	"pass": 146,
 	"results": [
 		{
 			"evidence": "  fnv1a64(\"\"                                            ) = cbf29ce484222325\n  fnv1a64(\"a\"                                           ) = af63dc4c8601ec8c\n  fnv1a64(\"b\"                                           ) = af63df4c8601f1a5\n  fnv1a64(\"foobar\"                                      ) = 85944171f73967e8\n  fnv1a64(\"hello world\"                                 ) = 779a65e7023cd2e7\n  fnv1a64(\"The quick brown fox jumps over the lazy dog\" ) = f3f9b7f5e7e47110",
@@ -198,51 +198,65 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "actual class=VoxelGeneratorNoise2D",
-			"id": "S4a/noise2d",
-			"message": "'noise2d' builds a VoxelGeneratorNoise2D",
+			"evidence": "class=VoxelGeneratorMultipassCB expected=VoxelGeneratorMultipassCB\nsource_kind=column entry point present=true\ncapabilities.legacy=false (must agree with the entry point)=true\nlabel=modular (native engine columns)",
+			"id": "S4a/native_cb",
+			"message": "'native_cb' builds a VoxelGeneratorMultipassCB and exposes the column entry point its capabilities claim",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "channel=0 (CHANNEL_TYPE=0)",
-			"id": "S4b/noise2d",
-			"message": "noise2d writes the TYPE channel (required by the blocky mesher)",
+			"evidence": "plan={ \"pass_count\": 1, \"max_extent\": 0, \"limit_passes\": 4, \"limit_extent\": 2, \"passes\": [{ \"index\": 0, \"extent\": 0, \"modules\": [\"surface.grass_stone_v1\"] }], \"providers\": [\"planet.hills_v1\"], \"skipped_by_tier\": {  }, \"errors\": [], \"warnings\": [] }\nresolved pipeline=2 modules\nnoise recipe=fractal=fbm, frequency=0.0035, gain=0.5, lacunarity=2.0, octaves=5, type=open_simplex_2\ncolumn_factor=1",
+			"id": "S4b/native_cb",
+			"message": "native_cb compiled a pass plan from the resolved pipeline",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "samples=[\"(x=-192,z=-192) top=60 ids=[1, 0]\", \"(x=-192,z=-128) top=65 ids=[1, 0]\", \"(x=-192,z=-64) top=70 ids=[1, 0]\"]",
-			"id": "S4e/noise2d",
-			"message": "terrain has real 3D relief: surface spans y=52..73 (21 blocks) over 36 columns",
+			"evidence": "planned=[\"surface.grass_stone_v1\", \"planet.hills_v1\"]\nexecutions=surface.grass_stone_v1=4, planet.hills_v1=5\nskipped by quality tier={  }\npipeline_errors=[]\nblackboard_errors=[]",
+			"id": "S4m/native_cb",
+			"message": "native_cb executed all 2 planned modules while generating columns",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "holes=0",
-			"id": "S4f/noise2d",
+			"evidence": "samples=[\"(x=-192,z=-192) top=60 ids=[3, 1, 0]\", \"(x=-192,z=-128) top=69 ids=[3, 1, 0]\", \"(x=-192,z=-64) top=72 ids=[3, 1, 0]\"]",
+			"id": "S4e/native_cb",
+			"message": "terrain has real 3D relief: surface spans y=49..78 (29 blocks) over 36 columns",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "rows checked below the surface=272 holes=0 []",
+			"id": "S4f/native_cb",
 			"message": "columns are solid from the surface down to world_y_min (no floating terrain)",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "ids=[0, 1]",
-			"id": "S4g/noise2d",
-			"message": "noise2d writes only air (0) and voxel id 1 - VoxelGeneratorHeightmap limitation, recorded in the report",
+			"evidence": "ids=[0, 1, 3]",
+			"id": "S4g/native_cb",
+			"message": "native_cb writes grass (1) on top and stone (3) below",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "out_of_bounds=0 max_id=1",
-			"id": "S4i/noise2d",
+			"evidence": "measured thicknesses=[3, 3, 3, 3, 3, 3]",
+			"id": "S4h/native_cb",
+			"message": "grass layer is 3 blocks thick as configured",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "out_of_bounds=0 max_id=3",
+			"id": "S4i/native_cb",
 			"message": "no voxels outside y=[-64,320) and all ids fit the 8-bit TYPE channel",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "actual class=VoxelGeneratorGraph",
+			"evidence": "class=VoxelGeneratorGraph expected=VoxelGeneratorGraph\nsource_kind=block entry point present=true\ncapabilities.legacy=true (must agree with the entry point)=true\nlabel=legacy M00 baseline (compiled graph)",
 			"id": "S4a/graph",
-			"message": "'graph' builds a VoxelGeneratorGraph",
+			"message": "'graph' builds a VoxelGeneratorGraph and exposes the block entry point its capabilities claim",
 			"status": "PASS",
 			"suite": "smoke"
 		},
@@ -275,7 +289,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "holes=0",
+			"evidence": "rows checked below the surface=272 holes=0 []",
 			"id": "S4f/graph",
 			"message": "columns are solid from the surface down to world_y_min (no floating terrain)",
 			"status": "PASS",
@@ -303,23 +317,128 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "ids=[\"noise2d\", \"graph\", \"multipass\"] next(noise2d)=graph next(graph)=multipass next(multipass)=noise2d unknown->null=true",
-			"id": "S4j",
-			"message": "adapter registry exposes 3 ids and cycles F3-style",
+			"evidence": "class=VoxelGeneratorNoise2D expected=VoxelGeneratorNoise2D\nsource_kind=block entry point present=true\ncapabilities.legacy=true (must agree with the entry point)=true\nlabel=legacy M00 baseline (engine noise2d heightmap)",
+			"id": "S4a/noise2d",
+			"message": "'noise2d' builds a VoxelGeneratorNoise2D and exposes the block entry point its capabilities claim",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "noise2d: surface y=63 (seed 12345) vs y=63 (seed 54321)\nnoise2d: second column y=59 vs y=66\ngraph: surface y=64 (seed 12345) vs y=64 (seed 54321)\ngraph: second column y=59 vs y=71\nmultipass: surface y=64 (seed 12345) vs y=64 (seed 54321)\nmultipass: second column y=59 vs y=71",
+			"evidence": "channel=0 (CHANNEL_TYPE=0)",
+			"id": "S4b/noise2d",
+			"message": "noise2d writes the TYPE channel (required by the blocky mesher)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "samples=[\"(x=-192,z=-192) top=60 ids=[1, 0]\", \"(x=-192,z=-128) top=65 ids=[1, 0]\", \"(x=-192,z=-64) top=70 ids=[1, 0]\"]",
+			"id": "S4e/noise2d",
+			"message": "terrain has real 3D relief: surface spans y=52..73 (21 blocks) over 36 columns",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "rows checked below the surface=271 holes=0 []",
+			"id": "S4f/noise2d",
+			"message": "columns are solid from the surface down to world_y_min (no floating terrain)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ids=[0, 1]",
+			"id": "S4g/noise2d",
+			"message": "noise2d writes only air (0) and voxel id 1 - VoxelGeneratorHeightmap limitation, recorded in the report",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "out_of_bounds=0 max_id=1",
+			"id": "S4i/noise2d",
+			"message": "no voxels outside y=[-64,320) and all ids fit the 8-bit TYPE channel",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "class=VoxelGeneratorScript expected=VoxelGeneratorScript\nsource_kind=column entry point present=true\ncapabilities.legacy=false (must agree with the entry point)=true\nlabel=modular (self-hosted columns, experimental)",
+			"id": "S4a/experimental_columns",
+			"message": "'experimental_columns' builds a VoxelGeneratorScript and exposes the column entry point its capabilities claim",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "plan={ \"pass_count\": 1, \"max_extent\": 0, \"limit_passes\": 1048576, \"limit_extent\": 1048576, \"passes\": [{ \"index\": 0, \"extent\": 0, \"modules\": [\"surface.grass_stone_v1\"] }], \"providers\": [\"planet.hills_v1\"], \"skipped_by_tier\": {  }, \"errors\": [], \"warnings\": [] }\nresolved pipeline=2 modules\nnoise recipe=fractal=fbm, frequency=0.0035, gain=0.5, lacunarity=2.0, octaves=5, type=open_simplex_2\ncolumn_factor=1",
+			"id": "S4b/experimental_columns",
+			"message": "experimental_columns compiled a pass plan from the resolved pipeline",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "planned=[\"surface.grass_stone_v1\", \"planet.hills_v1\"]\nexecutions=surface.grass_stone_v1=4, planet.hills_v1=5\nskipped by quality tier={  }\npipeline_errors=[]\nblackboard_errors=[]",
+			"id": "S4m/experimental_columns",
+			"message": "experimental_columns executed all 2 planned modules while generating columns",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "samples=[\"(x=-192,z=-192) top=60 ids=[3, 1, 0]\", \"(x=-192,z=-128) top=69 ids=[3, 1, 0]\", \"(x=-192,z=-64) top=72 ids=[3, 1, 0]\"]",
+			"id": "S4e/experimental_columns",
+			"message": "terrain has real 3D relief: surface spans y=49..78 (29 blocks) over 36 columns",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "rows checked below the surface=272 holes=0 []",
+			"id": "S4f/experimental_columns",
+			"message": "columns are solid from the surface down to world_y_min (no floating terrain)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ids=[0, 1, 3]",
+			"id": "S4g/experimental_columns",
+			"message": "experimental_columns writes grass (1) on top and stone (3) below",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "measured thicknesses=[3, 3, 3, 3, 3, 3]",
+			"id": "S4h/experimental_columns",
+			"message": "grass layer is 3 blocks thick as configured",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "out_of_bounds=0 max_id=3",
+			"id": "S4i/experimental_columns",
+			"message": "no voxels outside y=[-64,320) and all ids fit the 8-bit TYPE channel",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "ids=[\"native_cb\", \"graph\", \"noise2d\", \"experimental_columns\"]\nF3 cycle=[\"native_cb\", \"graph\", \"noise2d\", \"experimental_columns\"] wraps to native_cb\nunknown id -> null=true\ndefault='native_cb' executes_all_modules=true\nlegacy ids=[\"graph\", \"noise2d\"]",
+			"id": "S4j",
+			"message": "adapter registry exposes 4 ids, cycles F3-style over all of them, refuses unknown ids, and defaults to a module-executing backend",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "native_cb            surface y=64 (seed 12345) vs y=64 (seed 54321)\n                     second column y=59 vs y=71\ngraph                surface y=64 (seed 12345) vs y=64 (seed 54321)\n                     second column y=59 vs y=71\nnoise2d              surface y=63 (seed 12345) vs y=63 (seed 54321)\n                     second column y=59 vs y=66\nexperimental_columns surface y=64 (seed 12345) vs y=64 (seed 54321)\n                     second column y=59 vs y=71",
 			"id": "S4k",
 			"message": "the seed visibly changes the terrain for every adapter",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "noise2d  216 chunks in 2.0 ms (0.009 ms/chunk) relief=21 ids=[0, 1] grass=[117, 128, 129, 121, 128, 132]\ngraph    216 chunks in 9.9 ms (0.046 ms/chunk) relief=29 ids=[0, 1, 3] grass=[3, 3, 3, 3, 3, 3]\nmultipass 216 chunks in 2139.8 ms (9.906 ms/chunk) relief=29 ids=[0, 1, 3] grass=[0, 0, 3, 0, 0, 3]",
+			"evidence": "native_cb            9 columns in 56.7 ms (6.301 ms/column) relief=29 ids=[0, 1, 3] grass=[3, 3, 3, 3, 3, 3]\ngraph                216 chunks in 16.2 ms (0.075 ms/chunk) relief=29 ids=[0, 1, 3] grass=[3, 3, 3, 3, 3, 3]\nnoise2d              216 chunks in 3.3 ms (0.015 ms/chunk) relief=21 ids=[0, 1] grass=[117, 128, 129, 121, 128, 132]\nexperimental_columns 9 columns in 61.8 ms (6.862 ms/column) relief=29 ids=[0, 1, 3] grass=[3, 3, 3, 3, 3, 3]",
 			"id": "S4l",
-			"message": "per-adapter cost and variety measured identically (report input)",
+			"message": "per-backend cost and variety measured identically (report input)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "native_cb            6/6 checks present: S4a/native_cb=PASS, S4b/native_cb=PASS, S4e/native_cb=PASS, S4f/native_cb=PASS, S4g/native_cb=PASS, S4i/native_cb=PASS\ngraph                6/6 checks present: S4a/graph=PASS, S4b/graph=PASS, S4e/graph=PASS, S4f/graph=PASS, S4g/graph=PASS, S4i/graph=PASS\nnoise2d              6/6 checks present: S4a/noise2d=PASS, S4b/noise2d=PASS, S4e/noise2d=PASS, S4f/noise2d=PASS, S4g/noise2d=PASS, S4i/noise2d=PASS\nexperimental_columns 6/6 checks present: S4a/experimental_columns=PASS, S4b/experimental_columns=PASS, S4e/experimental_columns=PASS, S4f/experimental_columns=PASS, S4g/experimental_columns=PASS, S4i/experimental_columns=PASS",
+			"id": "S4z",
+			"message": "every backend produced its S4 checks (a crashing check must not vanish silently)",
 			"status": "PASS",
 			"suite": "smoke"
 		},
@@ -387,7 +506,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "VoxelRoot:<Node3D#162487338877>",
+			"evidence": "VoxelRoot:<Node3D#149837318035>",
 			"id": "S5b",
 			"message": "world.tscn contains the VoxelRoot placeholder",
 			"status": "PASS",
@@ -408,7 +527,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "VoxelGeneratorGraph",
+			"evidence": "VoxelGeneratorMultipassCB",
 			"id": "S5e",
 			"message": "terrain has a generator attached",
 			"status": "PASS",
@@ -422,7 +541,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "VoxelViewer:<VoxelViewer#164030842810>",
+			"evidence": "VoxelViewer:<VoxelViewer#151414376397>",
 			"id": "S5g",
 			"message": "a VoxelViewer node is parented to the fly camera",
 			"status": "PASS",
@@ -443,14 +562,14 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "statistics keys=[\"time_detect_required_blocks\", \"time_request_blocks_to_load\", \"time_process_load_responses\", \"time_request_blocks_to_update\", \"dropped_block_loads\", \"dropped_block_meshs\", \"updated_blocks\"] values={ \"time_detect_required_blocks\": 1, \"time_request_blocks_to_load\": 0, \"time_process_load_responses\": 0, \"time_request_blocks_to_update\": 0, \"dropped_block_loads\": 0, \"dropped_block_meshs\": 0, \"updated_blocks\": 0 }",
+			"evidence": "statistics keys=[\"time_detect_required_blocks\", \"time_request_blocks_to_load\", \"time_process_load_responses\", \"time_request_blocks_to_update\", \"dropped_block_loads\", \"dropped_block_meshs\", \"updated_blocks\"] values={ \"time_detect_required_blocks\": 2, \"time_request_blocks_to_load\": 1, \"time_process_load_responses\": 0, \"time_request_blocks_to_update\": 0, \"dropped_block_loads\": 0, \"dropped_block_meshs\": 0, \"updated_blocks\": 0 }",
 			"id": "S5j",
-			"message": "terrain streamed 499 data blocks in 260 frames",
+			"message": "terrain streamed 998 data blocks in 260 frames",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "missing=[]\nVoxelTerrain M01   HUD cost 0.022 ms/frame (budget 0.3  ok)   mode=full\n\nFPS    145    frame avg 6.90 ms   p95 6.94 ms   worst 145.12 ms (120 frames)\ndraw calls 0    primitives 0.0k    objects 0.0k\nstatic mem 113.5 MB  peak 113.6 MB  video mem 0.0 MB\n\npos    (8.0, 90.0, 8.0) m\nchunk  (0, 5, 0)   voxel (8, 90, 8)\nseed   20260814   tier low\ngen    VoxelGeneratorGraph (built in code, OutputType -> TYPE)\nview   8 chunks (config override; tier 'low' default 6)   vertical ratio 2.00   world y [-64,320)\nblocks loaded 499   voxel payload 1.9 MB\n\nVoxelTerrain.get_statistics():\n  time_detect_required_blocks  1\n  time_request_blocks_to_load  0\n  time_process_load_responses  0\n  time_request_blocks_to_update 0\n  dropped_block_loads          0\n  dropped_block_meshs          0\n  updated_blocks               0\n\nstartup errors: 0",
+			"evidence": "missing=[]\nVoxelTerrain M01   HUD cost 0.028 ms/frame (budget 0.3  ok)   mode=full\n\nFPS    137    frame avg 7.32 ms   p95 11.31 ms   worst 146.58 ms (120 frames)\ndraw calls 0    primitives 0.0k    objects 0.0k\nstatic mem 121.5 MB  peak 121.6 MB  video mem 0.0 MB\n\npos    (8.0, 90.0, 8.0) m\nchunk  (0, 5, 0)   voxel (8, 90, 8)\nseed   20260814   tier low\ngen    Native multipass columns (VoxelGeneratorMultipassCB subclass running the module pipeline)\nview   8 chunks (config override; tier 'low' default 6)   vertical ratio 2.00   world y [-64,320)\nblocks loaded 998   voxel payload 3.9 MB\n\nVoxelTerrain.get_statistics():\n  time_detect_required_blocks  2\n  time_request_blocks_to_load  1\n  time_process_load_responses  0\n  time_request_blocks_to_update 0\n  dropped_block_loads          0\n  dropped_block_meshs          0\n  updated_blocks               0\n\nstartup errors: 0",
 			"id": "S5k",
 			"message": "HUD FULL mode contains all required fields",
 			"status": "PASS",
@@ -478,7 +597,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "moved 40.5 m in 40 frames (128.0 m/s expected)",
+			"evidence": "moved 38.4 m in 40 frames (128.0 m/s expected)",
 			"id": "S5m2",
 			"message": "W moves the fly camera through its own _physics_process",
 			"status": "PASS",
@@ -527,7 +646,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "pos=(8.0, 90.0, 49.0) speed=128 noclip=true touch=false",
+			"evidence": "pos=(8.0, 90.0, 46.0) speed=128 noclip=true touch=false",
 			"id": "S5n",
 			"message": "fly camera reports state",
 			"status": "PASS",
@@ -537,6 +656,13 @@
 			"evidence": "is_on_floor=true start_y=130.0 final_y=64.0 min_y=64.0 frames=340",
 			"id": "S5o",
 			"message": "gravity+collision mode lands on generated terrain (A6)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "entries=[] fixtures=[] (a non-empty root would make X13..X22 fail for the wrong reason)",
+			"id": "X0",
+			"message": "the modding root user://modules is empty before the suite resolves any pipeline",
 			"status": "PASS",
 			"suite": "smoke"
 		},
@@ -562,7 +688,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "identical=true, cache before={ \"entries\": 1, \"used_bytes\": 18560, \"budget_bytes\": 25165824, \"hits\": 1, \"misses\": 1, \"evictions\": 0, \"recomputes\": 0 } after={ \"entries\": 1, \"used_bytes\": 18560, \"budget_bytes\": 25165824, \"hits\": 2, \"misses\": 3, \"evictions\": 0, \"recomputes\": 0 }",
+			"evidence": "identical=true, cache before={ \"entries\": 1, \"used_bytes\": 37056, \"budget_bytes\": 25165824, \"hits\": 1, \"misses\": 1, \"evictions\": 0, \"recomputes\": 1, \"world_fingerprint\": \"0000000000000000\" } after={ \"entries\": 1, \"used_bytes\": 37056, \"budget_bytes\": 25165824, \"hits\": 2, \"misses\": 3, \"evictions\": 0, \"recomputes\": 2, \"world_fingerprint\": \"0000000000000000\" }",
 			"id": "X8",
 			"message": "evicted tile recomputes bit-identical (cache misses are invisible)",
 			"status": "PASS",
@@ -576,7 +702,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "resolved=false errors=scheduler: dependency cycle in phase PLANET: tests.cyc_a -> tests.cyc_c -> tests.cyc_b -> tests.cyc_a",
+			"evidence": "resolved=false errors=scheduler: dependency cycle in band 0: tests.cyc_a -> tests.cyc_c -> tests.cyc_b -> tests.cyc_a",
 			"id": "X5",
 			"message": "a->b->c->a cycle produces a boot error containing the cycle path",
 			"status": "PASS",
@@ -590,9 +716,9 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "errors=module registry: duplicate module id 'tests.dup' in BOTH user://modules/dup_a.tres and user://modules/dup_b.tres - ids are globally unique; bump one of them, modules listed=3",
+			"evidence": "errors=module registry: duplicate module id 'tests.dup' in BOTH user://modules/dup_a.tres and user://modules/dup_b.tres - ids are globally unique; bump one of them, modules listed=3, leftovers after cleanup=[]",
 			"id": "X7",
-			"message": "duplicate module id errors naming BOTH file paths",
+			"message": "duplicate module id errors naming BOTH file paths, and the test leaves the module root clean",
 			"status": "PASS",
 			"suite": "smoke"
 		},
@@ -604,16 +730,121 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "registered=true (pipeline 2 -> 3 modules), mismatched origins=[]",
-			"id": "X1",
-			"message": "adding a no-op module changes NOTHING: all 64 M00 graph goldens reproduce",
+			"evidence": "undeclared requires -> scheduler: module 'tests.undeclared' requires 'field.mystery' without a channel declaration {type, scope, version}; scheduler: module 'tests.undeclared' requires channel 'field.mystery' but NO enabled module provides it. Resolved pipeline so far: [tests.undeclared]\ntype mismatch -> scheduler: channel 'field.shared' type mismatch: producer 'tests.decl_prod' declares TILE_FLOAT, consumer 'tests.decl_cons' declares FLOAT\nversion mismatch -> scheduler: channel 'field.shared' version mismatch: producer 'tests.decl_prod' v1, consumer 'tests.decl_cons_v2' expects v2 (bump the consumer or the producer, deliberately)\npublish mismatch -> blackboard: channel 'field.shared' is declared TILE_FLOAT but 'tests.decl_prod' published FLOAT (declared by producer 'tests.decl_prod')\nscope mismatch -> blackboard: channel 'field.shared' is declared scope 'region' but 'tests.decl_prod' published it in scope 'column'",
+			"id": "X18",
+			"message": "channel declarations are enforced at resolve time and at publish time",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "observed=42.0 (expected 42.0); zero pre-existing files edited: both modules are new files under user://modules/",
+			"evidence": "base key = field.height@1024,-2048#tests.fp_provider:v1:pf7c413c118efde5d:s16.0:h2:w000000000000006f\nworld fingerprint (seed / worldgen_version / tier) -> field.height@1024,-2048#tests.fp_provider:v1:pf7c413c118efde5d:s16.0:h2:w00000000000000de  CHANGED\nproducer id                                    -> field.height@1024,-2048#tests.fp_other:v1:pf7c413c118efde5d:s16.0:h2:w000000000000006f  CHANGED\nproducer version                               -> field.height@1024,-2048#tests.fp_provider:v2:p0ad78dbad788416e:s16.0:h2:w000000000000006f  CHANGED\nparams fingerprint (params = {\"rock_id\": 4})   -> field.height@1024,-2048#tests.fp_provider:v1:p4481949050e5e5a7:s16.0:h2:w000000000000006f  CHANGED\ntile spacing                                   -> field.height@1024,-2048#tests.fp_provider:v1:p02258d5f69026a95:s8.0:h2:w000000000000006f  CHANGED\ntile halo                                      -> field.height@1024,-2048#tests.fp_provider:v1:pa936fe547b74436d:s16.0:h0:w000000000000006f  CHANGED\nregion                                         -> field.height@2048,-2048#tests.fp_provider:v1:pf7c413c118efde5d:s16.0:h2:w000000000000006f  CHANGED\nchannel                                        -> field.other@1024,-2048#tests.fp_provider:v1:pf7c413c118efde5d:s16.0:h2:w000000000000006f  CHANGED\nbackend in `extra`: native_cb=1f4ea85faaf8930c experimental_columns=5fe20b887fe02191 (different by design)",
+			"id": "X19",
+			"message": "cache keys carry every tile-changing input, and a new world cannot hit an old world's tiles",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "exact (COLUMN scope) channel = 'field.height_exact'; coarse (REGION scope) channel = 'field.height'\nsurface pass 'surface.grass_stone_v1' requires [&\"field.height_exact\"] (extent 0)\nexact tile: spacing=1.0 width=16 distinct heights=256 range=[62.353, 65.248]\ncoarse tile: spacing=16.0 width=68 (region scope, cached, spacing 16 blocks)\ndistinct surface rows inside ONE 16x16 column: 4 ([64, 63, 62, 65])\nThe M01 defect this pins: the surface pass nearest-sampled the spacing-16 region tile, so 8x8 halves of a column shared one height (reviewer evidence E3, 9/64 origin mismatches).",
+			"id": "X20",
+			"message": "the surface pass consumes an exact per-block height channel (spacing 1), not a nearest-sampled coarse tile",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "extents [0,1,2] -> pass_count=3 errors=[]\npass extents in order = [0, 1, 2] (ascending: true)\nextent 3 -> errors=pass plan: module 'tests.too_wide' declares extent 3 but this backend allows at most 2 columns (the engine's VoxelGeneratorMultipassCB.MAX_PASS_EXTENT is 2). Split the rule, or run it on the 'experimental_columns' backend which has no engine limit (and no engine speed).\n3 extents with limit_passes=2 -> errors=pass plan: 3 distinct extents [0, 1, 2] need 3 passes but this backend allows 2 (the engine's VoxelGeneratorMultipassCB.MAX_PASSES is 4). Merge extents or move a rule to the 'experimental_columns' backend.\nbare module -> errors=pass plan: module 'tests.bare' (Resource) is not a FieldProvider, TerrainPass or FeatureStamp - nothing could execute it, so it would resolve and then silently do nothing. Give it one of the three contracts. executes_all=false\nshipped pipeline -> { \"pass_count\": 1, \"max_extent\": 0, \"limit_passes\": 4, \"limit_extent\": 2, \"passes\": [{ \"index\": 0, \"extent\": 0, \"modules\": [\"surface.grass_stone_v1\"] }], \"providers\": [\"planet.hills_v1\"], \"skipped_by_tier\": {  }, \"errors\": [], \"warnings\": [] }\n(the plan is what decides whether the engine can run a pipeline at all: MAX_PASSES=4, MAX_PASS_EXTENT=2, MAX_COLUMN_HEIGHT_BLOCKS=32)",
+			"id": "X21",
+			"message": "the pass plan compiles what fits the engine and refuses, by name, what does not",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "native_cb            executes_all_modules=true  legacy=false neighbour_passes=true  max_passes=4 max_extent=2 lod=false | modular (native engine columns)\ngraph                executes_all_modules=false legacy=true  neighbour_passes=false max_passes=0 max_extent=0 lod=false | legacy M00 baseline (compiled graph)\nnoise2d              executes_all_modules=false legacy=true  neighbour_passes=false max_passes=0 max_extent=0 lod=false | legacy M00 baseline (engine noise2d heightmap)\nexperimental_columns executes_all_modules=true  legacy=false neighbour_passes=true  max_passes=0 max_extent=0 lod=false | modular (self-hosted columns, experimental)\nlegacy 'graph': gated without the flag=true, allowed with it=true\nlegacy 'noise2d': gated without the flag=true, allowed with it=true",
+			"id": "X23",
+			"message": "backend capabilities are declared, the default backend executes modules, and legacy baselines are gated",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "quantize(+/-0.5, steps=1) = 1 / -1\nquantize(0.33 +/- 1e-4, 1024) = 338 / 338 / 338\nties: qcompare=0 qgreater=false qat_least=true; sub-resolution difference is NOT greater\nqsnap(0.3333333, 1024) = 0.333007812 (idempotent, qkey == quantize)\nqkey(-0.0) == qkey(0.0); quantize(1e9, 1024) = 1024000000000",
+			"id": "X24",
+			"message": "FixedPoint boundaries: half-way rounding, ties, sub-resolution differences, snap idempotence, large values",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "native_cb            plan passes=2 extent=1\n                       sink: neighbour_reads=1402 neighbour_misses=1402 served=0 oob_reads=0 rejected_writes=0\n                       generator aggregate: { \"span_fills\": 762, \"box_fills\": 0, \"clamped_writes\": 0, \"rejected_writes\": 0, \"unbound_writes\": 0, \"neighbour_reads\": 1402, \"neighbour_misses\": 1402, \"oob_reads\": 0 }\n                       verdict: neighbour reads are COUNTED, so a report can say whether an extent-1 harness run read real data or air\ngraph                legacy baseline: runs no modules, skipped\nnoise2d              legacy baseline: runs no modules, skipped\nexperimental_columns plan passes=2 extent=1\n                       sink: neighbour_reads=1402 neighbour_misses=0 served=1402 oob_reads=0 rejected_writes=0\n                       generator aggregate: { \"span_fills\": 762, \"box_fills\": 0, \"clamped_writes\": 0, \"rejected_writes\": 0, \"neighbour_reads\": 1402, \"neighbour_misses\": 0, \"oob_reads\": 0, \"neighbours\": 8 }\n                       verdict: neighbour reads are COUNTED, so a report can say whether an extent-1 harness run read real data or air\nfixtures installed now = []",
+			"id": "X25",
+			"message": "the in-memory harness counts every neighbour read it cannot serve (no silent air)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "(a) world-scope-only provider: listed in the pipeline dump=true executions=1 pipeline_errors=[]\n(a) value read back through the writer (sanity, not part of the assertion): 3\n(b) declared-but-unpublished provider: executions=1 (it ran; running is not the problem)\n(b) names the module=true names the channel=true names the call=true\n(b) pipeline_errors=[\"pipeline_runner: FieldProvider \\'tests.silent_provider\\' declared channel \\'field.silent\\' but compute_region() published neither it nor anything the cache could hold - the module resolved and ran, yet nothing downstream can read it. Publish it in compute_region(), or drop it from provides/channel_declarations.\"]\nfixtures installed now = []",
+			"id": "X26",
+			"message": "a world-scope-only FieldProvider executes, and a declared-but-unpublished channel is reported by module id",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "backend=native_cb changed_hashes=6/64 (e.g. [\"-3376,96,-89920\", \"-78144,96,-64016\", \"32864,96,-4960\"]) marker voxels on row 96 of column 0=16 module executions=65\nThis is the exact property M01 failed: a module resolved, was listed in the pipeline dump, and wrote nothing. No existing file was edited to get it: the module is a throwaway .gd + .tres dropped into user://modules by ModuleFixtures and removed again.",
+			"id": "X13",
+			"message": "adding an enabled module changes the DEFAULT backend's output (zero existing files edited)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "identical to baseline=true, identical to committed modular goldens=64/64, executions=64",
+			"id": "X14",
+			"message": "a module that writes nothing leaves every golden hash unchanged (and still executes)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "built=false error=pass plan refused: pass plan: module 'tests.bare_module' (Resource) is not a FieldProvider, TerrainPass or FeatureStamp - nothing could execute it, so it would resolve and then silently do nothing. Give it one of the three contracts.",
+			"id": "X15",
+			"message": "a resolved module that nothing can execute refuses the build instead of silently doing nothing",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "marker voxels on row 96=9 (the 3x3x2 box puts 9 there), placements={ \"tests.stamp_probe\": 1 }, executed={ \"planet.hills_v1\": 2, \"surface.grass_stone_v1\": 1, \"tests.stamp_probe\": 1 }",
+			"id": "X16",
+			"message": "a FeatureStamp is EXECUTED by the generic runner (candidates -> evaluate -> materialize)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "pipeline_ok=true resolved row={ \"id\": \"tests.alien_phase_pass\", \"version\": 1, \"phase\": \"MY_UNPLANNED_STAGE\", \"phase_order\": 77, \"priority\": 900, \"requires\": [], \"provides\": [], \"extent\": 0, \"column_factor\": 1 } ordered after SURFACE=true wrote its 2 markers=true\nM01 gated phases behind an enum in the contract file, so an unplanned stage needed an edit\nto src/spine/contracts/module_definition.gd. Now phase_order is a plain int and phase_name\na plain StringName: this module was added with ZERO edits to any existing file.",
+			"id": "X17",
+			"message": "a module in a phase nobody planned (phase_order 77, 'MY_UNPLANNED_STAGE') resolves, orders and runs",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "engine threads requested=4 applied=4; worker thread ids=[20, 19, 21, 24]; blocks loaded=998\nvoxels compared (live terrain vs debug_column_memory)=3600 mismatched=0 []\npass calls={ 0: 324 } writer={ \"span_fills\": 178688, \"box_fills\": 0, \"clamped_writes\": 0, \"rejected_writes\": 0, \"unbound_writes\": 0, \"neighbour_reads\": 0, \"neighbour_misses\": 0, \"oob_reads\": 0 }\nmodules executed during streaming={ \"planet.hills_v1\": 353, \"surface.grass_stone_v1\": 349 }",
+			"id": "X22",
+			"message": "live engine streaming produces the same voxels as the harness path, on 4 worker threads",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "registered=true (pipeline 2 -> 3 modules: [\"planet.hills_v1\", \"surface.grass_stone_v1\", \"tests.noop_v1\"])\nmismatched origins vs res://tests/determinism/golden_hashes_modular.json = []\nidentical to the M00 legacy graph goldens = 64/64 (the modular goldens ARE the graph's bytes)\nexecuted_counts = { \"planet.hills_v1\": 124, \"tests.noop_v1\": 1, \"surface.grass_stone_v1\": 64 }\nzero pre-existing files edited: the module is one new .gd + one new .tres under user://modules/",
+			"id": "X1",
+			"message": "adding a no-op module changes NOTHING: all 64 committed native_cb goldens reproduce, and the module ran 1 times",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "observed=42.0 (expected 42.0)\nresolved order=[\"tests.unknown_provider\", \"planet.hills_v1\", \"tests.unknown_consumer\", \"surface.grass_stone_v1\"]\nexecuted: provider=1 consumer=1  all={ \"tests.unknown_provider\": 1, \"planet.hills_v1\": 2, \"tests.unknown_consumer\": 1, \"surface.grass_stone_v1\": 1 }\nblackboard errors=[]\nshipped terrain in the same run: 16/16 sampled columns solid, distinct ids down the columns={ 3: true, 1: true, 0: true }\nzero pre-existing files edited: both modules are new files under user://modules/",
 			"id": "X2",
-			"message": "a channel no spec knows about round-trips producer -> blackboard -> consumer",
+			"message": "a channel no spec knows about round-trips producer -> blackboard -> consumer, and the shipped terrain still generates",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "entries=[] (a leftover module would make the next suite resolve a different pipeline)",
+			"id": "X2b",
+			"message": "the modding root is empty again after both extensibility checks",
 			"status": "PASS",
 			"suite": "smoke"
 		},
@@ -640,7 +871,7 @@
 		},
 		{
 			"evidence": "seed=20260814 block=16 type_depth=8-bit",
-			"id": "D1/noise2d",
+			"id": "D1/native_cb",
 			"message": "64/64 chunk hashes identical across two runs in one process",
 			"status": "PASS",
 			"suite": "determinism"
@@ -654,27 +885,34 @@
 		},
 		{
 			"evidence": "seed=20260814 block=16 type_depth=8-bit",
-			"id": "D1/multipass",
+			"id": "D1/noise2d",
 			"message": "64/64 chunk hashes identical across two runs in one process",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "origin=-6547600,240,-2781472\nnoise2d: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\ngraph: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\nmultipass: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH",
+			"evidence": "seed=20260814 block=16 type_depth=8-bit",
+			"id": "D1/experimental_columns",
+			"message": "64/64 chunk hashes identical across two runs in one process",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "origin=-6547600,240,-2781472\nnative_cb: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\ngraph: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\nnoise2d: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\nexperimental_columns: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH",
 			"id": "D3",
 			"message": "chunk #40 hashes identically alone and after generating #1..#39",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "origin=37568,64,51696\nnoise2d: alone=add7b16fc21ddda3 after24=add7b16fc21ddda3 MATCH uniform=false non_air=1104/4096\ngraph: alone=5ec659db44119a4f after24=5ec659db44119a4f MATCH uniform=false non_air=1533/4096\nmultipass: alone=84f9ca0c67d6feb8 after24=84f9ca0c67d6feb8 MATCH uniform=false non_air=1536/4096",
+			"evidence": "origin=37568,64,51696\nnative_cb: alone=5ec659db44119a4f after24=5ec659db44119a4f MATCH uniform=false non_air=1533/4096\ngraph: alone=5ec659db44119a4f after24=5ec659db44119a4f MATCH uniform=false non_air=1533/4096\nnoise2d: alone=add7b16fc21ddda3 after24=add7b16fc21ddda3 MATCH uniform=false non_air=1104/4096\nexperimental_columns: alone=5ec659db44119a4f after24=5ec659db44119a4f MATCH uniform=false non_air=1533/4096",
 			"id": "D3b",
 			"message": "order independence on a NON-UNIFORM surface-band chunk",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "noise2d: 10/64 hashes changed when the seed changed by 1\ngraph: 10/64 hashes changed when the seed changed by 1\nmultipass: 9/64 hashes changed when the seed changed by 1\nnoise2d: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\ngraph: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\nmultipass: 6/24 surface-band chunks straddle the surface; 6 of those changed with seed+1",
+			"evidence": "native_cb: 10/64 hashes changed when the seed changed by 1\ngraph: 10/64 hashes changed when the seed changed by 1\nnoise2d: 10/64 hashes changed when the seed changed by 1\nexperimental_columns: 10/64 hashes changed when the seed changed by 1\nnative_cb: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\ngraph: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\nnoise2d: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\nexperimental_columns: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1",
 			"id": "D4",
 			"message": "a different seed produces different hashes for every adapter",
 			"status": "PASS",
@@ -683,7 +921,7 @@
 		{
 			"evidence": "banned calls: [\"randf(\", \"randi(\", \"randomize(\", \"Time.get_\"]\nbanned identifiers outside adapters: [\"Voxel\", \"ZN_\"]\ndirs: [\"res://src/core\", \"res://src/spine\", \"res://src/worldgen\", \"res://src/adapters\"]\nsrc/runtime/debug and src/runtime/world may use Time.* (HUD timing, screenshot names, F5 seed); they are never scanned.",
 			"id": "D5",
-			"message": "no banned non-deterministic calls and no Voxel identifiers outside adapters (31 scripts scanned)",
+			"message": "no banned non-deterministic calls and no Voxel identifiers outside adapters (38 scripts scanned)",
 			"status": "PASS",
 			"suite": "determinism"
 		},
@@ -709,72 +947,100 @@
 			"suite": "determinism"
 		},
 		{
-			"evidence": "generator=noise2d seed=20260814 block=16 type_depth=8-bit\norigin                   hash (hex)         bytes    uniform non_air/total\n0,0,0                    d3fc59178540f6b1   4096     true    4096/4096\n16,0,0                   70bc177f4709b3d5   4096     true    4096/4096\n-16,0,0                  90a0de9450f9c076   4096     true    4096/4096\n0,-64,0                  69f385c4a37f0f44   4096     true    4096/4096\n0,304,0                  a3c8e77660d91540   4096     true    0/4096\n1000000,64,-1000000      f419a68319c5717c   4096     true    0/4096\n-1000016,-64,1000016     fdcababb159fee70   4096     true    4096/4096\n32752,112,-49168         6c4616baaad045ab   4096     true    0/4096",
+			"evidence": "generator=native_cb seed=20260814 block=16 type_depth=8-bit\norigin                   hash (hex)         bytes    uniform non_air/total\n0,0,0                    8158b1b899d06753   4096     true    4096/4096\n16,0,0                   c26cd3434389e927   4096     true    4096/4096\n-16,0,0                  fb3c26adff8091f0   4096     true    4096/4096\n0,-64,0                  50f2b1184fe2d2ca   4096     true    4096/4096\n0,304,0                  a3c8e77660d91540   4096     true    0/4096\n1000000,64,-1000000      4ddc1aea149296e4   4096     false   10/4096\n-1000016,-64,1000016     eb2fa2fceb9fbe06   4096     true    4096/4096\n32752,112,-49168         6c4616baaad045ab   4096     true    0/4096",
 			"id": "D-table",
-			"message": "first 8 chunk hashes (noise2d)",
+			"message": "first 8 chunk hashes (native_cb)",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "process pid=38419\nnoise2d: 64/64 match\ngraph: 64/64 match\nmultipass: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json + res://tests/determinism/golden_hashes_multipass.json\nenv match: true\nchild process exit code: 0",
+			"evidence": "origins=320 (64 committed + 256 surface-band); 87 contain a terrain surface (non-uniform)\nreference = legacy 'graph' baseline, freshly generated in this process\nneighbour passes: disabled (content/modules holds only the two shipped modules; no fixtures installed: [])\nnative_cb: 320/320 identical to the graph; mismatches=[]; modules executed={ \"planet.hills_v1\": 634, \"surface.grass_stone_v1\": 320 }\nexperimental_columns: 320/320 identical to the graph; mismatches=[]; modules executed={ \"planet.hills_v1\": 632, \"surface.grass_stone_v1\": 318 }",
+			"id": "D6",
+			"message": "modular backends reproduce the legacy compiled graph on 320 origins (87 of them surface-bearing)",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "process pid=35540\nnoise2d: 64/64 match\ngraph: 64/64 match\nnative_cb: 64/64 match\nexperimental_columns: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json + res://tests/determinism/golden_hashes_modular.json\nenv match: true\nchild process exit code: 0",
 			"id": "D2",
-			"message": "second process reproduced 192/192 committed golden hashes (0 mismatches)",
+			"message": "second process reproduced 256/256 committed golden hashes (0 mismatches)",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "os=Linux (Debian GNU/Linux 13 (trixie)) arch=x86_64\ncpu=Intel(R) Xeon(R) Processor @ 2.60GHz x2 threads\nram_total=1982.8 MiB ram_available=693.6 MiB\ngpu=<none> vendor=<none>\nrenderer=mobile display_server=headless headless=true\ngodot=4.7.2-stable (official) hash=ed1daf0bf001b61586d9930840f2f1394092c079\nvoxel_tools=1.7.0 GDExtension\nscope=single-threaded generate_block() only; EXCLUDES meshing, VoxelEngine thread pools,\n  block loading, GPU upload and anything the real streaming pipeline does (see B1 header)\n\nBLOCKED as a statement about the target device. This build machine is FAR weaker\nthan the 3-4 GB RAM / Adreno 610-class Android target: only 2 CPU threads, 1982.8 MiB RAM, no GPU reported by RenderingServer (software rasterisation).\nThe per-chunk costs below are still valid AS A RELATIVE COMPARISON of the two\nadapters on identical hardware (that is what B2 uses them for) and as a\nregression baseline for this machine. They must NOT be quoted as phone numbers.",
+			"evidence": "os=Linux (Debian GNU/Linux 13 (trixie)) arch=x86_64\ncpu=Intel(R) Xeon(R) Processor @ 2.60GHz x2 threads\nram_total=1982.8 MiB ram_available=741.3 MiB\ngpu=<none> vendor=<none>\nrenderer=mobile display_server=headless headless=true\ngodot=4.7.2-stable (official) hash=ed1daf0bf001b61586d9930840f2f1394092c079\nvoxel_tools=1.7.0 GDExtension\nscope=caller-thread generator cost only; EXCLUDES meshing, VoxelEngine thread pools,\n  block loading, GPU upload and anything the real streaming pipeline does\n\nBLOCKED as a statement about the target device. This build machine is FAR weaker\nthan the 3-4 GB RAM / Adreno 610-class Android target: only 2 CPU threads, 1982.8 MiB RAM, no GPU reported by RenderingServer (software rasterisation).\nThe per-column costs below are still valid AS A RELATIVE COMPARISON of the\nbackends on identical hardware (that is what B2/B7 use them for) and as a\nregression baseline for this machine. They must NOT be quoted as phone numbers.",
 			"id": "B0",
 			"message": "benchmark environment recorded - machine too weak for device claims",
 			"status": "BLOCKED",
 			"suite": "perf"
 		},
 		{
-			"evidence": "chunks=24576 (32x32 block footprint, 24 rows each)\ntotal_ms=116.08\nmean_ms_per_chunk=0.0047\np50_ms=0.0010\np95_ms=0.0280\nmax_ms=0.0890\nchunks_per_second=211720\npeak_static_memory_delta=0.0 MiB (before=157.5 after=157.5)\nno debug_measure_microseconds_per_voxel() on this generator class",
-			"id": "B1/noise2d",
-			"message": "noise2d: 0.0047 ms/chunk mean, 211720 chunks/s over 24576 chunks",
+			"evidence": "unit=column (16x384x16)  units=1024 (32x32 block footprint, CONTIGUOUS: region field tiles are cache-warm)\ntotal_ms=2781.18  mean_ms_per_column=2.7160\np50_ms=2.6770  p95_ms=2.7920  max_ms=9.9530\nnormalised: 2.7160 ms/column, 0.1132 ms per 16^3 chunk equivalent, 368.2 columns/s\nCOLD region cache (64 scattered origins, one region tile per column): 9.1174 ms/column = 9.1174 ms/column\n  cold/warm ratio = 3.36x  <- the price of a region field tile that serves only one column\n  a streaming viewer pays something between the two: it walks contiguous columns, but each new\n  region costs one cold tile (the cache hits/misses below are from the warm run)\npeak_static_memory_delta=0.0 MiB (before=177.1 after=177.1)\ncapabilities: executes_all_modules=true legacy=false\nbackend stats: executed={ \"planet.hills_v1\": 1028, \"surface.grass_stone_v1\": 1024 }\n               cache={ \"entries\": 4, \"used_bytes\": 148224, \"budget_bytes\": 25165824, \"hits\": 2044, \"misses\": 4, \"evictions\": 0, \"recomputes\": 4, \"world_fingerprint\": \"d6f38a8c5c9dbe26\" }\n               writer={ \"span_fills\": 524288, \"box_fills\": 0, \"clamped_writes\": 0, \"rejected_writes\": 0, \"unbound_writes\": 0, \"neighbour_reads\": 0, \"neighbour_misses\": 0, \"oob_reads\": 0 }\n               worker threads seen=[] pass_calls={  }",
+			"id": "B1/native_cb",
+			"message": "native_cb (column): 2.7160 ms/column mean over 1024 units = 2.7160 ms/column",
 			"status": "PASS",
 			"suite": "perf"
 		},
 		{
-			"evidence": "chunks=24576 (32x32 block footprint, 24 rows each)\ntotal_ms=1080.21\nmean_ms_per_chunk=0.0440\np50_ms=0.0010\np95_ms=0.2560\nmax_ms=0.8690\nchunks_per_second=22751\npeak_static_memory_delta=0.0 MiB (before=157.5 after=157.5)\nVoxelGeneratorGraph.debug_measure_microseconds_per_voxel()=0.189 us/voxel (engine's own estimate)",
+			"evidence": "unit=chunk (16x16x16)  units=1024 (32x32 block footprint, CONTIGUOUS: region field tiles are cache-warm)\ntotal_ms=5.66  mean_ms_per_chunk=0.0055\np50_ms=0.0050  p95_ms=0.0060  max_ms=0.0310\nnormalised: 0.1325 ms/column, 0.0055 ms per 16^3 chunk equivalent, 7544.9 columns/s\nCOLD region cache (64 scattered origins, one region tile per column): 0.1603 ms/chunk = 3.8460 ms/column\n  cold/warm ratio = 29.02x  <- the price of a region field tile that serves only one column\n  a streaming viewer pays something between the two: it walks contiguous columns, but each new\n  region costs one cold tile (the cache hits/misses below are from the warm run)\npeak_static_memory_delta=0.0 MiB (before=177.1 after=177.1)\ncapabilities: executes_all_modules=false legacy=true",
 			"id": "B1/graph",
-			"message": "graph: 0.0440 ms/chunk mean, 22751 chunks/s over 24576 chunks",
+			"message": "graph (block): 0.0055 ms/chunk mean over 1024 units = 0.1325 ms/column",
 			"status": "PASS",
 			"suite": "perf"
 		},
 		{
-			"evidence": "chunks=24576 (32x32 block footprint, 24 rows each)\ntotal_ms=34789.21\nmean_ms_per_chunk=1.4156\np50_ms=0.1950\np95_ms=0.2780\nmax_ms=230.3170\nchunks_per_second=706\npeak_static_memory_delta=0.0 MiB (before=157.5 after=157.5)\nno debug_measure_microseconds_per_voxel() on this generator class",
-			"id": "B1/multipass",
-			"message": "multipass: 1.4156 ms/chunk mean, 706 chunks/s over 24576 chunks",
+			"evidence": "unit=chunk (16x16x16)  units=1024 (32x32 block footprint, CONTIGUOUS: region field tiles are cache-warm)\ntotal_ms=3.26  mean_ms_per_chunk=0.0032\np50_ms=0.0030  p95_ms=0.0030  max_ms=0.0290\nnormalised: 0.0765 ms/column, 0.0032 ms per 16^3 chunk equivalent, 13079.9 columns/s\nCOLD region cache (64 scattered origins, one region tile per column): 0.0185 ms/chunk = 0.4436 ms/column\n  cold/warm ratio = 5.80x  <- the price of a region field tile that serves only one column\n  a streaming viewer pays something between the two: it walks contiguous columns, but each new\n  region costs one cold tile (the cache hits/misses below are from the warm run)\npeak_static_memory_delta=0.0 MiB (before=177.1 after=177.1)\ncapabilities: executes_all_modules=false legacy=true",
+			"id": "B1/noise2d",
+			"message": "noise2d (block): 0.0032 ms/chunk mean over 1024 units = 0.0765 ms/column",
 			"status": "PASS",
 			"suite": "perf"
 		},
 		{
-			"evidence": "noise2d  0.1191 ms/chunk over 2048 chunks; non_air=2771627/8388608 voxels\ngraph    0.1431 ms/chunk over 2048 chunks; non_air=2802650/8388608 voxels\nmultipass 2.2045 ms/chunk over 2048 chunks; non_air=2802560/8388608 voxels",
+			"evidence": "unit=column (16x384x16)  units=1024 (32x32 block footprint, CONTIGUOUS: region field tiles are cache-warm)\ntotal_ms=2821.28  mean_ms_per_column=2.7552\np50_ms=2.7250  p95_ms=2.8250  max_ms=9.9620\nnormalised: 2.7552 ms/column, 0.1148 ms per 16^3 chunk equivalent, 363.0 columns/s\nCOLD region cache (64 scattered origins, one region tile per column): 8.9684 ms/column = 8.9684 ms/column\n  cold/warm ratio = 3.26x  <- the price of a region field tile that serves only one column\n  a streaming viewer pays something between the two: it walks contiguous columns, but each new\n  region costs one cold tile (the cache hits/misses below are from the warm run)\npeak_static_memory_delta=31.0 MiB (before=177.1 after=208.1)\ncapabilities: executes_all_modules=true legacy=false\nbackend stats: executed={ \"planet.hills_v1\": 1028, \"surface.grass_stone_v1\": 1024 }\n               cache={ \"entries\": 4, \"used_bytes\": 148224, \"budget_bytes\": 25165824, \"hits\": 2044, \"misses\": 4, \"evictions\": 0, \"recomputes\": 4, \"world_fingerprint\": \"59dcf8002bf95f28\" }\n               writer={ \"span_fills\": 524288, \"box_fills\": 0, \"clamped_writes\": 0, \"rejected_writes\": 0, \"neighbour_reads\": 0, \"neighbour_misses\": 0, \"oob_reads\": 0, \"neighbours\": 0 }",
+			"id": "B1/experimental_columns",
+			"message": "experimental_columns (column): 2.7552 ms/column mean over 1024 units = 2.7552 ms/column",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "backend              kind    legacy      ms/column     ms/chunk-equiv cold ms/col   columns/s\nnative_cb            column  false       2.7160        0.1132        9.1174        368.2   <= DEFAULT\ngraph                block   true        0.1325        0.0055        3.8460        7544.9\nnoise2d              block   true        0.0765        0.0032        0.4436        13079.9\nexperimental_columns column  false       2.7552        0.1148        8.9684        363.0\n\nThe DEFAULT backend 'native_cb' is also the cheapest modular backend measured here.\n'ms/column' is the CONTIGUOUS footprint (region field tiles cache-warm, the streaming case);\n'cold ms/col' is the scattered ChunkOrigins set (one region tile per column, the teleport case).\nQuoting either alone would misrepresent the backend; the ratio between them is the amortisation\nthe region cache buys.\nM00 reference (same machine, per 16^3 chunk): noise2d 0.0047 ms, graph 0.0409 ms.\nThose were BLOCK generators; the ms/chunk-equiv column above is what compares to them.",
 			"id": "B2",
-			"message": "per-adapter generation cost compared (M01 recommendation input)",
+			"message": "per-backend generation cost normalised to one table",
 			"status": "PASS",
 			"suite": "perf"
 		},
 		{
-			"evidence": "columns=1024 mean=30.585 p50=29.529 p95=38.033 max=53.664 ms\ncolumn compiles=1024 pass_b applications=0 field_cache={ \"entries\": 4, \"used_bytes\": 74240, \"budget_bytes\": 25165824, \"hits\": 2044, \"misses\": 4, \"evictions\": 0, \"recomputes\": 0 }",
-			"id": "B3/e0",
-			"message": "multipass extent 0: 30.585 ms/column over 1024 columns (1.2744 ms/chunk equivalent)",
+			"evidence": "native_cb            no debug_measure_microseconds_per_voxel() on VoxelGeneratorMultipassCB\ngraph                0.288 us/voxel (the engine's own estimate of its compiled graph)\nnoise2d              no debug_measure_microseconds_per_voxel() on VoxelGeneratorNoise2D\nexperimental_columns no debug_measure_microseconds_per_voxel() on VoxelGeneratorScript",
+			"id": "B3",
+			"message": "engine-internal cost estimate recorded where the generator exposes one (1 of 4 backends)",
 			"status": "PASS",
 			"suite": "perf"
 		},
 		{
-			"evidence": "columns=1024 mean=35.024 p50=4.842 p95=141.594 max=240.306 ms\ncolumn compiles=1127 pass_b applications=279 field_cache={ \"entries\": 4, \"used_bytes\": 74240, \"budget_bytes\": 25165824, \"hits\": 2250, \"misses\": 4, \"evictions\": 0, \"recomputes\": 0 }",
-			"id": "B3/e1",
-			"message": "multipass extent 1: 35.024 ms/column over 1024 columns (1.4593 ms/chunk equivalent)",
+			"evidence": "native_cb            distinct voxel ids over 64 columns = [0, 1, 3]\ngraph                distinct voxel ids over 64 chunks = [3]\nnoise2d              distinct voxel ids over 64 chunks = [1]\nexperimental_columns distinct voxel ids over 64 columns = [0, 1, 3]",
+			"id": "B4",
+			"message": "expressiveness measured from generated data, not from docs",
 			"status": "PASS",
 			"suite": "perf"
 		},
 		{
-			"evidence": "column cost (16x384x16), this machine, single-threaded:\n  graph (compiled, extent 0 by construction):  0.994 ms/column\n  multipass extent 0 (GDScript passes):         30.585 ms/column (30.8x graph)\n  multipass extent 1 (+ neighbour cliff pass):  35.024 ms/column (35.2x graph)\n\nRECOMMENDATION (M02+): keep the compiled graph as the default backend, with analytic\n  extent-0 stamps for flora/structure density. Reserve the multipass evaluator for the\n  few features that truly need cross-chunk reads (M08 trunks crossing chunk borders,\n  M10 structures). Reasons, measured here:\n  * multipass costs 30.8x the graph per column in pure GDScript, and that gap grows with\n    every neighbour-aware pass added (extent 1 already adds 4.4 ms/column);\n  * VoxelGeneratorMultipassCB is NOT scriptable in the 1.7 GDExtension\n    (probe_multipass2.gd: 'Can't inherit from a virtual class', no passes property),\n    so there is no engine-accelerated multipass path to move this into;\n  * MultipassCB also has no LOD support, which the distant-terrain milestone (M13) needs.\n  The graph path therefore stays default; 'multipass' remains selectable in config for\n  the features above and for cross-checking (55/64 chunks match the graph on seed 20260814).",
-			"id": "B3/rec",
-			"message": "multipass vs graph column-cost verdict",
+			"evidence": "native_cb            neighbour pass in plan=true  64 columns in 3348.5 ms  mean=52.321 ms/column (19.26x the extent-0 baseline 2.716)\n                       plan={ \"pass_count\": 2, \"max_extent\": 1, \"limit_passes\": 4, \"limit_extent\": 2, \"passes\": [{ \"index\": 0, \"extent\": 0, \"modules\": [\"surface.grass_stone_v1\"] }, { \"index\": 1, \"extent\": 1, \"modules\": [\"tests.cliff_pass\"] }], \"providers\": [\"planet.hills_v1\"], \"skipped_by_tier\": {  }, \"errors\": [], \"warnings\": [] }\n                       sink counters over the 64 harness columns: { \"span_fills\": 44634, \"box_fills\": 0, \"clamped_writes\": 0, \"rejected_writes\": 0, \"unbound_writes\": 0, \"neighbour_reads\": 94435, \"neighbour_misses\": 94435, \"oob_reads\": 0 }\n                       pass_calls={  } (empty here on purpose: the engine only counts a pass when it\n                       calls _generate_pass; the harness path runs the same plan through PipelineRunner)\n                       READ THIS BEFORE QUOTING: the harness sink holds ONE column, so every neighbour\n                       read it serves is a MISS returning air - neighbour_misses above says how many. B5 is\n                       therefore a COST measurement of extent-1 machinery, not a correctness one. Extent-1\n                       CORRECTNESS is measured where neighbours really exist: experimental_columns through\n                       NeighbourColumnWriter (tools/probe_cliff.gd: changed=9/64 columns, neighbour_reads\n                       served from generated columns) and native_cb through the live engine tool\n                       (tools/probe_cliff.gd: neighbour_reads=70749, neighbour_misses=0).\n                       executed={ \"planet.hills_v1\": 132, \"surface.grass_stone_v1\": 64, \"tests.cliff_pass\": 64 }\nexperimental_columns neighbour pass in plan=true  64 columns in 3791.3 ms  mean=59.240 ms/column (21.50x the extent-0 baseline 2.755)\n                       plan={ \"pass_count\": 2, \"max_extent\": 1, \"limit_passes\": 1048576, \"limit_extent\": 1048576, \"passes\": [{ \"index\": 0, \"extent\": 0, \"modules\": [\"surface.grass_stone_v1\"] }, { \"index\": 1, \"extent\": 1, \"modules\": [\"tests.cliff_pass\"] }], \"providers\": [\"planet.hills_v1\"], \"skipped_by_tier\": {  }, \"errors\": [], \"warnings\": [] }\n                       sink counters over the 64 harness columns: { \"span_fills\": 44634, \"box_fills\": 0, \"clamped_writes\": 0, \"rejected_writes\": 0, \"neighbour_reads\": 94435, \"neighbour_misses\": 0, \"oob_reads\": 0, \"neighbours\": 512 }\n                       pass_calls=<null> (empty here on purpose: the engine only counts a pass when it\n                       calls _generate_pass; the harness path runs the same plan through PipelineRunner)\n                       READ THIS BEFORE QUOTING: the harness sink holds ONE column, so every neighbour\n                       read it serves is a MISS returning air - neighbour_misses above says how many. B5 is\n                       therefore a COST measurement of extent-1 machinery, not a correctness one. Extent-1\n                       CORRECTNESS is measured where neighbours really exist: experimental_columns through\n                       NeighbourColumnWriter (tools/probe_cliff.gd: changed=9/64 columns, neighbour_reads\n                       served from generated columns) and native_cb through the live engine tool\n                       (tools/probe_cliff.gd: neighbour_reads=70749, neighbour_misses=0).\n                       executed={ \"planet.hills_v1\": 232, \"surface.grass_stone_v1\": 164, \"tests.cliff_pass\": 64 }\nfixture removed; installed now = []",
+			"id": "B5",
+			"message": "neighbour-pass (extent 1) cost measured on both modular backends with a throwaway fixture",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "debug_generate_test_column(Vector2i) x64: total=227.7 ms mean=3.557 ms/column p50=3.078 p95=10.281 max=10.453\nharness path (GDScript MemoryColumnWriter, B1): 2.716 ms/column\nengine path / harness path = 1.31x\n\nThe engine path writes through VoxelTool.do_box() spans on the caller thread here; during\nstreaming the same _generate_pass runs on engine worker threads (X22 measures 4 of them).\nReference measurement from the M01 write-cost probe: per-voxel set_voxel 3404 us/column vs\ndo_box spans 958 us/column, i.e. the span writer is ~3.5x cheaper, which is what the\nshipped NativeColumnWriter uses.\nWARNING: only 64 samples",
+			"id": "B6",
+			"message": "native_cb engine-native column path: 3.557 ms/column over 64 columns (1.31x the harness path)",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "GATE TABLE for the default backend 'native_cb' (each row points at the check that decides it):\n  correctness vs the legacy compiled graph : D6 - 320 origins (64 committed + 256 surface band),\n                                             neighbour passes disabled, 0 mismatches required\n  module execution                         : X13/X14/X15/X16/X17 - an added module changes the\n                                             output, a no-op does not, an unexecutable one is refused\n  concurrency                              : X22 - live terrain on 4 engine worker threads,\n                                             streamed voxels == harness voxels, 0 rejected writes\n  live streaming                           : X22 (same run) + tools/probe_native_live.gd\n  cost                                     : B1/B2/B5/B6 below\n\n  native_cb            harness=2.716 ms/column (cold region 9.117)  cliff(extent1)=52.321 ms/column (19.26x)  engine-native=3.557 ms/column\n  graph                harness=0.133 ms/column (cold region 3.846)  cliff(extent1)=n/a (legacy baseline)  engine-native=n/a\n  noise2d              harness=0.076 ms/column (cold region 0.444)  cliff(extent1)=n/a (legacy baseline)  engine-native=n/a\n  experimental_columns harness=2.755 ms/column (cold region 8.968)  cliff(extent1)=59.240 ms/column (21.50x)  engine-native=n/a\n\nCOST VERDICT: the default modular backend costs 20.5x the legacy compiled graph per column\non the HARNESS path (2.716 vs 0.133 ms/column). The graph is a C++ compiled node graph with no\nmodule pipeline at all, so this is the price of scriptability, not a regression: the graph\ncannot run a module from user://modules (evidence E2) and is gated behind\nallow_legacy_baseline for exactly that reason.\n\nThat ratio is large enough to matter on the target device, so it is recorded as a KNOWN\nCOST DEBT with the measured levers, not waved away:\n  * engine-native writes are already ~3.5x cheaper than per-voxel writes (do_box spans);\n  * the region field cache means one coarse tile serves 64 columns (cache stats in B1);\n  * the remaining harness cost is GDScript module dispatch, which only the engine path (B6)\n    and, later, a compiled graph generated FROM the module plan can remove;\n  * quality_scaling retraction (T9) is wired: a module with factor <= 0 is skipped.\n\nB6 measures the same backend through the engine's own column path: 3.557 ms/column.\n\nRECOMMENDATION: keep 'native_cb' as the default. It is the only backend that satisfies the\ncorrectness, module-execution, concurrency and live-streaming gates at once; 'experimental_columns'\n(the self-hosted column generator, never the extension's MultipassCB) matches it on correctness but\nhas no engine worker threads and no engine mesher integration, and the two legacy baselines fail\nthe module-execution gate outright.",
+			"id": "B7",
+			"message": "generation cost recommendation for the default backend",
 			"status": "PASS",
 			"suite": "perf"
 		},
@@ -787,6 +1053,6 @@
 		}
 	],
 	"threads": 2,
-	"total": 111,
+	"total": 149,
 	"voxel_tools": "1.7.0 GDExtension (release)"
 }

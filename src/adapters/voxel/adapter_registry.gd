@@ -6,14 +6,26 @@ extends RefCounted
 ## src/adapters/ ask this registry for a generator by string id and receive a plain
 ## `Resource`; they never name a Voxel Tools class (ADR-0002).
 ##
-## Adding a generator in M01+ means: write src/adapters/voxel/gen_<x>_adapter.gd extending
-## IGeneratorAdapter, add its id to ORDER, and add it to VALID_GENERATORS in
-## src/runtime/world/world_config.gd. Nothing else changes.
+## M01-fix / T1-T2 - It is also the only place that knows what each backend CAN do, as data:
+## `capabilities(id)` returns executes_all_modules / supports_neighbor_passes / max_passes /
+## max_extent / max_column_height_blocks / supports_lod / legacy. The runtime uses
+## executes_all_modules + legacy to decide whether a world may boot on a backend at all
+## (fail closed, evidence E2), and the report prints the table instead of prose.
+##
+## Adding a generator means: write src/adapters/voxel/gen_<x>_adapter.gd extending
+## IGeneratorAdapter, add its id to ORDER, add it to VALID_GENERATORS in
+## src/runtime/world/world_config.gd, and declare its capabilities. Nothing else changes.
 
-const DEFAULT_ID := "noise2d"
+## M01-fix: the default is the backend that actually runs the resolved module pipeline.
+## The M00 baselines stay in the cycle for comparison and for the golden cross-check.
+const DEFAULT_ID := "native_cb"
 
-## Order matters: F3 cycles through this list in order.
-const ORDER: Array[String] = ["noise2d", "graph", "multipass"]
+## Order matters: F3 cycles through this list in order (default first).
+const ORDER: Array[String] = ["native_cb", "graph", "noise2d", "experimental_columns"]
+
+## Backends kept as frozen M00 baselines. They do not execute modules; selecting one needs
+## `allow_legacy_baseline` in the world config.
+const LEGACY_IDS: Array[String] = ["graph", "noise2d"]
 
 
 static func ids() -> Array[String]:
@@ -22,6 +34,10 @@ static func ids() -> Array[String]:
 
 static func has_id(id: String) -> bool:
 	return id in ORDER
+
+
+static func is_legacy(id: String) -> bool:
+	return id in LEGACY_IDS
 
 
 static func next_id(current: String) -> String:
@@ -40,12 +56,14 @@ static func is_known(id: String) -> bool:
 
 static func create(id: String) -> IGeneratorAdapter:
 	match id:
+		"native_cb":
+			return GenNativeCBAdapter.new()
 		"noise2d":
 			return GenNoise2DAdapter.new()
 		"graph":
 			return GenGraphAdapter.new()
-		"multipass":
-			return GenMultipassAdapter.new()
+		"experimental_columns":
+			return GenExperimentalColumnsAdapter.new()
 	push_error("AdapterRegistry: unknown generator id '%s' (known: %s)" % [id, str(ORDER)])
 	return null
 
@@ -53,12 +71,33 @@ static func create(id: String) -> IGeneratorAdapter:
 ## Like create(), but returns null for an unknown id without logging an engine error.
 ## Tests and config validation use this; runtime code uses create() so a bad id is loud.
 static func try_create(id: String) -> IGeneratorAdapter:
-	match id:
-		"noise2d":
-			return GenNoise2DAdapter.new()
-		"graph":
-			return GenGraphAdapter.new()
-	return null
+	if not is_known(id):
+		return null
+	return create(id)
+
+
+## Capability metadata for one backend, without building it.
+static func capabilities(id: String) -> Dictionary:
+	var adapter := try_create(id)
+	if adapter == null:
+		return {"id": id, "error": "unknown generator id"}
+	return adapter.capabilities()
+
+
+## The whole capability table, in ORDER: what the report and the HUD print.
+static func capabilities_all() -> Array:
+	var out: Array = []
+	for id in ORDER:
+		out.append(capabilities(id))
+	return out
+
+
+## True when `id` executes every enabled resolved module. The world boot checks this before
+## accepting a backend as the world's generator (a backend that ignores modules cannot be
+## the default of a module pipeline - that was M01's evidence E2).
+static func executes_all_modules(id: String) -> bool:
+	var caps := capabilities(id)
+	return bool(caps.get("executes_all_modules", false))
 
 
 ## Build a generator for `id`. Returns:
@@ -76,7 +115,8 @@ static func build_generator(id: String, seed_value: int, gen_context: Dictionary
 	var gen: VoxelGenerator = adapter.build(seed_value, gen_context)
 	out["report"] = adapter.get_last_build_report()
 	if gen == null:
-		out["report"]["error"] = "adapter '%s' returned no generator" % id
+		if not out["report"].has("error"):
+			out["report"]["error"] = "adapter '%s' returned no generator" % id
 		return out
 
 	out["ok"] = true
@@ -96,6 +136,7 @@ static func describe_all(seed_value: int, gen_context: Dictionary) -> Array:
 			"id": id,
 			"display_name": adapter.get_display_name(),
 			"built_ok": bool(r["ok"]),
+			"capabilities": adapter.capabilities(),
 			"report": r["report"],
 		})
 	return out
