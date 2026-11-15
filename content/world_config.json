@@ -1,6 +1,7 @@
 {
 	"_comment": [
 		"M00 / T4 - Runtime world configuration. Read by src/runtime/world/world_config.gd.",
+		"M01: config_version 2 adds worldgen_version + modules override block; quality_tier now owns concrete budgets (see WorldConfig.TIER_BUDGETS) and view_distance_chunks is an OVERRIDE of the tier default (8 here, tier 'low' default 6) - the HUD shows which won.",
 		"In M00 only `seed`, `view_distance_chunks` and `generator` actually change what you",
 		"see on screen; the rest are read, validated and recorded so that later milestones",
 		"(M01 spine, M02 planetary heightfields) inherit a stable contract instead of",
@@ -17,9 +18,9 @@
 		"world_y_max is EXCLUSIVE: 320 means the highest buildable block index is 319 and the",
 		"world is exactly 384 blocks tall (320 - (-64))."
 	],
-	"config_version": 1,
+	"config_version": 2,
 	"seed": 20260814,
-	"generator": "noise2d",
+	"generator": "graph",
 	"view_distance_chunks": 8,
 	"block_size": 1.0,
 	"world_y_min": -64,
@@ -51,5 +52,7 @@
 		"grass_id": 1,
 		"dirt_id": 2,
 		"air_id": 0
-	}
+	},
+	"worldgen_version": 1,
+	"modules": {}
 }

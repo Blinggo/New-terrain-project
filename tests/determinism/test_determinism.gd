@@ -37,7 +37,7 @@ func run(ctx: Dictionary) -> Array:
 	var origins := ChunkOrigins.get_origins(_cfg.sea_level)
 
 	if phase == "second_process":
-		return [_d2_second_process(origins)]
+		return [_d2_second_process(origins, ctx)]
 
 	var out: Array = []
 	out.append_array(_d1_same_process(origins))
@@ -76,42 +76,33 @@ func _d1_same_process(origins: Array) -> Array:
 
 # --- D2 ---------------------------------------------------------------------------------
 
-func _d2_second_process(origins: Array) -> Dictionary:
-	var golden := JsonData.load_file(GOLDEN_PATH)
+func _d2_second_process(origins: Array, ctx: Dictionary = {}) -> Dictionary:
+	var golden_path := String(ctx.get("golden_path", GOLDEN_PATH))
+	var golden := JsonData.load_file(golden_path)
 	if golden.is_empty():
 		return TestHarness.fail(SUITE, "D2",
-			"golden file missing or unreadable: %s" % GOLDEN_PATH,
+			"golden file missing or unreadable: %s" % golden_path,
 			"run: godot --headless --path . --script res://tools/make_golden_hashes.gd")
 
-	var by_gen: Dictionary = golden.get("by_generator", {})
-	var all_diffs: Array = []
-	var checked := 0
-	var per_gen: Array[String] = []
-
-	for id in AdapterRegistry.ids():
-		if not by_gen.has(id):
-			all_diffs.append("%s: no golden section" % id)
-			continue
-		var built := AdapterRegistry.build_generator(id, int(golden.get("seed", _cfg.seed_value)), _cfg.to_gen_context())
-		if not built["ok"]:
-			all_diffs.append("%s: generator failed to build: %s" % [id, built["report"].get("error", "?")])
-			continue
-		var fresh := ChunkHasher.hash_all(built["generator"], origins, BLOCK_SIZE, int(golden.get("type_depth_bits", 8)))
-		var gold: Dictionary = by_gen[id]
-		var diffs := _diff(gold, fresh)
-		checked += gold.size()
-		all_diffs.append_array(diffs)
-		per_gen.append("%s: %d/%d match" % [id, gold.size() - diffs.size(), gold.size()])
-
-	var env_ok := _environment_matches(golden)
-	var evidence := "process pid=%d\n%s\ngolden: %s\nenv match: %s" % [
-		OS.get_process_id(), "\n".join(per_gen), GOLDEN_PATH, str(env_ok),
-	]
-	if not all_diffs.is_empty():
-		evidence += "\nmismatches (%d): %s" % [all_diffs.size(), str(all_diffs.slice(0, 5))]
-
-	return TestHarness.result(SUITE, "D2", "PASS" if all_diffs.is_empty() and checked > 0 else "FAIL",
-		"second process reproduced %d committed golden hashes" % checked, evidence)
+	var res := GoldenCompare.compare(golden, origins, _cfg, ["noise2d", "graph"])
+	# X11: the multipass backend carries its OWN committed golden set, compared here in the
+	# second process exactly like the M00 backends.
+	var mp_path := "res://tests/determinism/golden_hashes_multipass.json"
+	var mp_golden: Dictionary = JsonData.load_file(mp_path)
+	if mp_golden.is_empty():
+		res["ok"] = false
+		res["mismatches"].append("multipass golden file missing: %s" % mp_path)
+		res["per_gen"].append("multipass: no golden file")
+	else:
+		var mp := GoldenCompare.compare(mp_golden, origins, _cfg, ["multipass"])
+		res["checked"] += mp["checked"]
+		res["matched"] += mp["matched"]
+		res["mismatches"].append_array(mp["mismatches"])
+		res["per_gen"].append_array(mp["per_gen"])
+		res["ok"] = res["ok"] and mp["ok"]
+	return TestHarness.result(SUITE, "D2", "PASS" if res["ok"] else "FAIL",
+		GoldenCompare.compose_message(res),
+		GoldenCompare.compose_evidence(res, golden_path + " + " + mp_path))
 
 
 func _environment_matches(golden: Dictionary) -> bool:
@@ -259,24 +250,35 @@ func _d4_seed_is_wired(origins: Array) -> Dictionary:
 # --- D5 ---------------------------------------------------------------------------------
 
 func _d5_lint() -> Array:
-	var out: Array = []
-	var hits: Array[String] = []
+	# M01: the lint body moved to src/core/layer_lint.gd so the smoke suite (X9) and this
+	# determinism gate share ONE implementation. Directories now include src/spine, and an
+	# identifier scan enforces "only src/adapters/ names Voxel Tools classes" (hard rule #2).
+	var call_hits: Array = LayerLint.banned_call_hits()
+	var id_hits: Array = LayerLint.identifier_hits()
 	var scanned := 0
-	for dir_path in LINT_DIRS:
-		for f in _list_scripts(dir_path):
-			scanned += 1
-			var lines := FileAccess.get_file_as_string(f).split("\n")
-			for i in lines.size():
-				var line: String = lines[i]
-				var code := _strip_comment(line)
-				for banned in BANNED:
-					if code.contains(banned):
-						hits.append("%s:%d  %s   | %s" % [f, i + 1, banned, code.strip_edges()])
+	for dir_path in LayerLint.GEN_DIRS:
+		scanned += _count_scripts(dir_path)
+	var hits: Array[String] = []
+	for h in call_hits:
+		hits.append(String(h))
+	for h in id_hits:
+		hits.append(String(h))
 
+	var out: Array = []
 	out.append(TestHarness.result(SUITE, "D5", "PASS" if hits.is_empty() else "FAIL",
-		"no banned non-deterministic calls in generation code (%d scripts scanned)" % scanned,
-		"\n".join(hits) if not hits.is_empty() else "banned: %s\ndirs: %s\n%s" % [str(BANNED), str(LINT_DIRS), LINT_EXEMPT_NOTE]))
+		"no banned non-deterministic calls and no Voxel identifiers outside adapters (%d scripts scanned)" % scanned,
+		"\n".join(hits) if not hits.is_empty() else "banned calls: %s\nbanned identifiers outside adapters: %s\ndirs: %s\n%s" % [
+			str(LayerLint.BANNED_CALLS), str(LayerLint.BANNED_IDENTIFIERS), str(LayerLint.GEN_DIRS), LINT_EXEMPT_NOTE]))
+	# X9 is the layering half, reported under its own id so the acceptance table can point
+	# at it directly (B10).
+	out.append(TestHarness.result(SUITE, "X9", "PASS" if id_hits.is_empty() else "FAIL",
+		"layering lint: no Voxel*/ZN_* identifier in core/, spine/, worldgen/",
+		"\n".join(id_hits.map(func(h): return String(h))) if not id_hits.is_empty() else "scanned: %s" % str(LayerLint.PURE_DIRS)))
 	return out
+
+
+func _count_scripts(dir_path: String) -> int:
+	return LayerLint._list_dir(dir_path).size()
 
 
 ## Remove a trailing # comment so that documentation mentioning randf() cannot fail the lint
@@ -298,19 +300,57 @@ func _strip_comment(line: String) -> String:
 
 
 func _d5b_empty_layers() -> Dictionary:
-	## Hard rule #6: M00 must NOT build later milestones. Prove src/worldgen and src/spine
-	## still contain nothing but their README.
-	var bad: Array[String] = []
+	## M00's D5b asserted spine/worldgen were EMPTY. In M01 they hold the machinery, so the
+	## guard becomes B17: no later-milestone CONTENT. Concretely: content/modules/ must hold
+	## exactly the two M01 modules, and no worldgen file may declare biome/climate/cave/etc.
+	var dir := DirAccess.open("res://content/modules")
 	var found: Array[String] = []
-	for dir_path in EMPTY_IN_M00:
-		var files := _list_all_files(dir_path)
-		for f in files:
-			found.append(f)
-			if not f.ends_with("README.md"):
-				bad.append(f)
-	return TestHarness.result(SUITE, "D5b", "PASS" if bad.is_empty() else "FAIL",
-		"src/worldgen and src/spine are still empty in M00 (no later milestones built)",
-		"files present: %s" % (str(found) if not found.is_empty() else "(none)"))
+	if dir != null:
+		dir.list_dir_begin()
+		var n := dir.get_next()
+		while n != "":
+			if n.ends_with(".tres"):
+				found.append(n)
+			n = dir.get_next()
+		dir.list_dir_end()
+	found.sort()
+	var expected := ["planet_hills_v1.tres", "surface_grass_stone_v1.tres"]
+	var ok := found == expected
+
+	# Later-milestone vocabulary must not appear in worldgen/spine source.
+	var banned_words := ["biome", "climate", "temperature", "precipitation", "erosion", "river",
+		"waterfall", "cave", "strata", "volcano", "arch", "tree", "foliage", "structure",
+		"weather", "cloud", "season", "save_game", "multiplayer"]
+	var hits: Array[String] = []
+	for root in ["res://src/worldgen", "res://src/spine"]:
+		for path in _list_gd(root):
+			var text := FileAccess.get_file_as_string(path).to_lower()
+			for w in banned_words:
+				# only identifier-ish occurrences, not prose in comments
+				if text.find(w + "_") >= 0 or text.find("_" + w) >= 0 or text.find(w + "(") >= 0:
+					hits.append("%s: %s" % [path, w])
+	if not hits.is_empty():
+		ok = false
+	return TestHarness.result(SUITE, "D5b/B17", "PASS" if ok else "FAIL",
+		"content/modules holds exactly the M01 module set; no later-milestone content in spine/worldgen",
+		"modules=%s (expected %s)\nbanned-vocabulary hits=%s" % [str(found), str(expected), str(hits)])
+
+
+func _list_gd(root: String) -> Array:
+	var out := []
+	var dir := DirAccess.open(root)
+	if dir == null:
+		return out
+	dir.list_dir_begin()
+	var n := dir.get_next()
+	while n != "":
+		if dir.current_is_dir():
+			out.append_array(_list_gd(root + "/" + n))
+		elif n.ends_with(".gd"):
+			out.append(root + "/" + n)
+		n = dir.get_next()
+	dir.list_dir_end()
+	return out
 
 
 func _origin_coverage(origins: Array) -> Dictionary:

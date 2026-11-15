@@ -13,7 +13,7 @@ extends RefCounted
 const DEFAULT_ID := "noise2d"
 
 ## Order matters: F3 cycles through this list in order.
-const ORDER: Array[String] = ["noise2d", "graph"]
+const ORDER: Array[String] = ["noise2d", "graph", "multipass"]
 
 
 static func ids() -> Array[String]:
@@ -44,6 +44,8 @@ static func create(id: String) -> IGeneratorAdapter:
 			return GenNoise2DAdapter.new()
 		"graph":
 			return GenGraphAdapter.new()
+		"multipass":
+			return GenMultipassAdapter.new()
 	push_error("AdapterRegistry: unknown generator id '%s' (known: %s)" % [id, str(ORDER)])
 	return null
 

@@ -45,7 +45,7 @@ const SHOTS := [
 		"desc": "touch controls visible (mobile emulation)",
 		"pos": Vector3(8, 76, 8), "pitch_deg": -3.0, "yaw_deg": 15.0,
 		"speed_index": 2, "touch": true, "noclip": true, "gravity": false,
-		"view_distance": 8,
+		"view_distance": 8, "hud_mode": 0,   # phone default: compact + touch overlay
 	},
 	{
 		"label": "02_aerial_200m_horizon",
@@ -61,7 +61,7 @@ const SHOTS := [
 		# is what makes the surface stream at all from this altitude (probe_vratio.gd).
 		"pos": Vector3(8, 264, 8), "pitch_deg": -35.0, "yaw_deg": 35.0,
 		"speed_index": 2, "touch": false, "noclip": true, "gravity": false,
-		"view_distance": 12,
+		"view_distance": 12, "hud_mode": 1,
 	},
 	{
 		"label": "03_block_closeup_ao",
@@ -74,7 +74,7 @@ const SHOTS := [
 		"pos": Vector3.ZERO, "auto_cliff": true,
 		"pitch_deg": -12.0, "yaw_deg": 42.0,
 		"speed_index": 2, "touch": false, "noclip": true, "gravity": false,
-		"view_distance": 8,
+		"view_distance": 8, "hud_mode": 1,
 	},
 	{
 		"label": "04_far_teleport",
@@ -83,7 +83,14 @@ const SHOTS := [
 		# real +/-100 000 block teleport A4 asks for, not a hardcoded pose.
 		"pos": Vector3(0, 96, 0), "pitch_deg": -8.0, "yaw_deg": -20.0,
 		"speed_index": 2, "touch": false, "noclip": true, "gravity": false,
-		"teleport": true, "view_distance": 8,
+		"teleport": true, "view_distance": 8, "hud_mode": 1,
+	},
+	{
+		"label": "06_pipeline_page",
+		"desc": "HUD pipeline page: resolved module order, versions, phases, channels",
+		"pos": Vector3(8, 72, 8), "pitch_deg": -6.0, "yaw_deg": 10.0,
+		"speed_index": 2, "touch": false, "noclip": true, "gravity": false,
+		"view_distance": 8, "hud_mode": 2,
 	},
 ]
 
@@ -151,6 +158,10 @@ func _take_shot(world: Node, shot: Dictionary) -> String:
 	if shot.has("view_distance"):
 		world.set_view_distance(int(shot["view_distance"]), "shot")
 
+	if shot.has("hud_mode"):
+		var hud: Node = world.get_node_or_null("DebugHUD")
+		if hud != null and hud.has_method("set_mode"):
+			hud.call("set_mode", int(shot["hud_mode"]))
 	cam.set_touch_mode(bool(shot.get("touch", false)))
 	cam.noclip = bool(shot.get("noclip", true))
 	cam.speed_index = int(shot.get("speed_index", 2))

@@ -29,6 +29,9 @@ const SMOKE_MODULES: Array[String] = [
 	"res://tests/smoke/test_assets.gd",
 	"res://tests/smoke/test_generators.gd",
 	"res://tests/smoke/test_scene.gd",
+	"res://tests/smoke/test_spine.gd",
+	"res://tests/smoke/test_extensibility.gd",
+	"res://tests/smoke/test_task0_regressions.gd",
 ]
 const DETERMINISM_MODULE := "res://tests/determinism/test_determinism.gd"
 const PERF_MODULES: Array[String] = [
@@ -48,8 +51,18 @@ func _run() -> void:
 	var started := Time.get_ticks_msec()
 
 	if "--phase2" in user_args:
-		results = TestHarness.run_module(DETERMINISM_MODULE, _ctx("second_process"))
-		JsonData.save_file(PHASE2_PATH, {"results": results})
+		var p2ctx := _ctx("second_process")
+		var golden_override := _arg_value(user_args, "--golden=", "")
+		if golden_override != "":
+			p2ctx["golden_path"] = golden_override
+		results = TestHarness.run_module(DETERMINISM_MODULE, p2ctx)
+		# The nonce is how the parent proves this file was written by THE CHILD IT JUST
+		# SPAWNED and not left over from an earlier run (Task 0.3, stale-result false PASS).
+		JsonData.save_file(PHASE2_PATH, {
+			"run_nonce": _arg_value(user_args, "--nonce=", ""),
+			"pid": OS.get_process_id(),
+			"results": results,
+		})
 		print(TestHarness.format_table(results))
 		quit(TestHarness.exit_code(results))
 		return
@@ -160,22 +173,42 @@ func _ctx(phase: String) -> Dictionary:
 func _run_second_process() -> Array:
 	var exe := OS.get_executable_path()
 	var project := ProjectSettings.globalize_path("res://")
-	var args := ["--headless", "--path", project, "--script", "res://tools/run_tests.gd", "--", "--phase2"]
-	var output: Array = []
-	var exit_code := -1
-	var err := OS.execute(exe, args, output, true)
-	if err != OK:
-		return [TestHarness.fail("determinism", "D2",
-			"could not spawn the second process (OS.execute error %d)" % err,
-			"exe=%s args=%s" % [exe, str(args)])]
 
-	var data := JsonData.load_file(PHASE2_PATH)
-	var res: Array = data.get("results", [])
-	if res.is_empty():
-		return [TestHarness.fail("determinism", "D2",
-			"second process produced no results",
-			"exit=%d output tail: %s" % [exit_code, _tail(output)])]
-	return res
+	# Task 0.3: remove any committed/leftover result file BEFORE spawning, so nothing stale
+	# can ever be read. The file is a generated artifact and is gitignored.
+	if FileAccess.file_exists(PHASE2_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(PHASE2_PATH))
+
+	var nonce := "n%d-%d" % [Time.get_ticks_usec(), OS.get_process_id()]
+	var args := ["--headless", "--path", project, "--script", "res://tools/run_tests.gd", "--", "--phase2", "--nonce=" + nonce]
+	var output: Array = []
+
+	# In Godot 4 OS.execute() returns the CHILD'S EXIT CODE, and any non-zero value looks
+	# exactly like a spawn failure (Task 0.1). A golden-hash mismatch makes the child exit 1,
+	# so the exit code alone must never be reported as "could not spawn". The child's result
+	# file, validated by nonce, is the source of truth; the exit code is evidence.
+	var exit_code := OS.execute(exe, args, output, true)
+
+	var read := GoldenCompare.read_child_result(PHASE2_PATH, nonce)
+	if read["ok"]:
+		var res: Array = read["results"]
+		# Record the child's exit code on every result so a mismatch (exit 1) is visible in
+		# the parent's evidence even though the results themselves carry the real verdict.
+		for r in res:
+			if r is Dictionary:
+				r["evidence"] = String(r.get("evidence", "")) + "\nchild process exit code: %d" % exit_code
+		if exit_code != 0:
+			print("run_tests: second process exited %d; its own results above are authoritative" % exit_code)
+		return res
+
+	# No fresh result: NOW it is a spawn/infrastructure failure, and we say precisely which.
+	var reason := "could not obtain fresh results from the second process"
+	if exit_code != 0:
+		reason += " (OS.execute returned %d, which may be the child's exit code or a spawn error)" % exit_code
+	else:
+		reason += " (child exited 0 but wrote no fresh result file)"
+	return [TestHarness.fail("determinism", "D2", reason,
+		"validation: %s\nexe=%s\nargs=%s\noutput tail: %s" % [read["error"], exe, str(args), _tail(output)])]
 
 
 func _tail(output: Array) -> String:

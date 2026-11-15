@@ -1,33 +1,48 @@
 extends CanvasLayer
 ## src/runtime/debug/debug_hud.gd
 ##
-## M00 / T7 - Debug HUD. Toggle with F1. Must cost < 0.3 ms/frame, and it MEASURES ITSELF
-## and prints the result, so the budget is a reported number rather than a claim.
+## M00 / T7, reworked in M01 (reviewer Task 0.4): the M00 HUD covered ~40% of a 1280x720
+## frame, which on a phone is unusable. It now has four modes, cycled by F1 or by tapping
+## the panel on touch devices:
 ##
-## LAYER: runtime/debug. No Voxel Tools references: it reads plain Dictionaries handed over
-## by world.gd (which in turn gets them from src/adapters/).
+##   COMPACT (default)  4 lines: fps (+HUD self-cost), frame p95, position, loaded blocks
+##   FULL               everything M00 showed, incl. the raw VoxelTerrain statistics dict
+##   PIPELINE           M01: resolved module order, id/version/phase, published channels,
+##                      per-module timing
+##   OFF                hidden
 ##
-## Everything printed here is real:
-##   * draw calls / primitives / objects  -> RenderingServer.get_rendering_info() with the
-##     enum values verified in 4.7 (TOTAL_PRIMITIVES_IN_FRAME=1, TOTAL_DRAW_CALLS_IN_FRAME=2,
-##     TOTAL_OBJECTS_IN_FRAME=0, VIDEO_MEM_USED=5).
-##   * static memory -> OS.get_static_memory_usage() / get_static_memory_peak_usage()
-##   * FPS -> Engine.get_frames_per_second(); frame times are sampled locally so that the
-##     average / p95 / worst are over the LAST 120 frames, not the engine's smoothed FPS.
-##   * voxel statistics -> VoxelTerrain.get_statistics() via the adapter. In 1.7 its keys are
-##     exactly: time_detect_required_blocks, time_request_blocks_to_load,
-##     time_process_load_responses, time_request_blocks_to_update, dropped_block_loads,
-##     dropped_block_meshs, updated_blocks. There is NO loaded-block counter there, so the
-##     loaded block count comes from VoxelEngine.get_stats().memory_pools.block_count.
+## The whole panel scales with the viewport (font size, margins, padding) via
+## compute_scale_for(), so a 720p desktop and a 360p-ish phone portrait window both get a
+## readable, proportionate overlay.
+##
+## It still MEASURES ITSELF: _hud_cost_ms is the amortised cost per frame of our own text
+## work, printed in every mode that shows text, against FRAME_BUDGET_MS.
+##
+## LAYER: runtime/debug. No Voxel Tools references: everything arrives as plain Dictionaries
+## from world.gd (which gets them from src/adapters/).
 
 const ROLLING_FRAMES := 120
 const TEXT_UPDATES_PER_SECOND := 10.0
 const FRAME_BUDGET_MS := 0.3
 
+enum Mode { COMPACT, FULL, PIPELINE, OFF }
+const MODE_NAMES := ["compact", "full", "pipeline", "off"]
+
+## Reference design size; the scale factor is relative to this.
+const REF_VIEWPORT := Vector2(1280.0, 720.0)
+const MIN_SCALE := 0.55
+const MAX_SCALE := 2.0
+const BASE_FONT_COMPACT := 15.0
+const BASE_FONT_FULL := 13.0
+const BASE_FONT_HELP := 12.0
+
 var _world: Node = null
 var _panel: Panel = null
 var _label: Label = null
 var _help_label: Label = null
+
+var _mode: int = Mode.COMPACT
+var _touch_active := false
 
 var _frame_times := PackedFloat32Array()
 var _frame_index := 0
@@ -36,7 +51,6 @@ var _since_text_update := 0
 var _accum_ms := 0.0
 var _hud_cost_ms := 0.0
 var _worst_ms := 0.0
-var _visible_hud := true
 
 
 func _ready() -> void:
@@ -49,16 +63,16 @@ func _ready() -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.04, 0.05, 0.07, 0.62)
 	sb.set_corner_radius_all(4)
-	sb.set_content_margin_all(8.0)
 	_panel.add_theme_stylebox_override("panel", sb)
 	_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	# IGNORE on desktop so the panel never eats mouse-look clicks; STOP on touch devices so
+	# a tap on the HUD cycles the mode (Task 0.4).
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_panel.gui_input.connect(_on_panel_gui_input)
 	add_child(_panel)
 
 	_label = Label.new()
 	_label.name = "HUDText"
-	_label.position = Vector2(10, 8)
-	_label.add_theme_font_size_override("font_size", 13)
 	_label.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0))
 	_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	_label.add_theme_constant_override("shadow_offset_x", 1)
@@ -69,17 +83,17 @@ func _ready() -> void:
 	_help_label = Label.new()
 	_help_label.name = "HUDHelp"
 	_help_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_help_label.position = Vector2(10, -96)
-	_help_label.add_theme_font_size_override("font_size", 12)
 	_help_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.72))
 	_help_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_help_label.text = (
 		"WASD move | Space/Q up | Ctrl/E down | Shift boost | Wheel speed | Mouse look (Esc release)\n"
-		+ "F1 HUD  F2 screenshot  F3 generator  F4 view distance  F5 new seed  F6 far teleport  F7 wireframe\n"
+		+ "F1 HUD mode  F2 screenshot  F3 generator  F4 view distance  F5 new seed  F6 far teleport  F7 wireframe\n"
 		+ "N noclip/gravity+collision  T touch overlay"
 	)
 	add_child(_help_label)
 
+	get_viewport().size_changed.connect(_apply_scale)
+	_apply_scale()
 	_rebuild_text()
 
 
@@ -88,18 +102,92 @@ func set_world(world: Node) -> void:
 	_world = world
 
 
+func set_touch_active(active: bool) -> void:
+	_touch_active = active
+	if _panel != null:
+		_panel.mouse_filter = Control.MOUSE_FILTER_STOP if active else Control.MOUSE_FILTER_IGNORE
+	_apply_scale()
+
+
+func cycle_mode() -> void:
+	_mode = (_mode + 1) % Mode.size()
+	_apply_visibility()
+	_rebuild_text()
+	print("debug_hud: mode = %s" % mode_name())
+
+
+func set_mode(m: int) -> void:
+	_mode = clampi(int(m), 0, Mode.size() - 1)
+	_apply_visibility()
+	_rebuild_text()
+
+
+func get_mode() -> int:
+	return _mode
+
+
+func mode_name() -> String:
+	return MODE_NAMES[_mode]
+
+
+## Kept for the M00 test that toggled visibility; OFF mode is now the canonical hide.
 func toggle() -> void:
-	_visible_hud = not _visible_hud
-	visible = _visible_hud
-	print("debug_hud: visible = %s" % str(_visible_hud))
+	if _mode == Mode.OFF:
+		set_mode(Mode.COMPACT)
+	else:
+		set_mode(Mode.OFF)
 
 
 func is_hud_visible() -> bool:
-	return _visible_hud
+	return _mode != Mode.OFF
+
+
+## Pure so tests can assert the scaling law without a window.
+static func compute_scale_for(vp: Vector2) -> float:
+	if vp.x <= 0.0 or vp.y <= 0.0:
+		return 1.0
+	return clampf(minf(vp.x / REF_VIEWPORT.x, vp.y / REF_VIEWPORT.y), MIN_SCALE, MAX_SCALE)
+
+
+func ui_scale() -> float:
+	var vp := get_viewport()
+	if vp == null:
+		return 1.0
+	return compute_scale_for(Vector2(vp.get_visible_rect().size))
+
+
+func measured_cost_ms() -> float:
+	return _hud_cost_ms
+
+
+func _on_panel_gui_input(event: InputEvent) -> void:
+	if not _touch_active:
+		return
+	if event is InputEventScreenTouch and event.pressed:
+		cycle_mode()
+
+
+func _apply_visibility() -> void:
+	visible = _mode != Mode.OFF
+	if _help_label != null:
+		_help_label.visible = _mode == Mode.FULL
+
+
+func _apply_scale() -> void:
+	if _panel == null:
+		return
+	var s := ui_scale()
+	var sb: StyleBoxFlat = _panel.get_theme_stylebox("panel")
+	sb.set_content_margin_all(8.0 * s)
+	_label.position = Vector2(10.0 * s, 8.0 * s)
+	_label.add_theme_font_size_override("font_size", int(round(
+		BASE_FONT_COMPACT * s if _mode == Mode.COMPACT else BASE_FONT_FULL * s)))
+	_help_label.add_theme_font_size_override("font_size", int(round(BASE_FONT_HELP * s)))
+	_help_label.position = Vector2(10.0 * s, -96.0 * s)
 
 
 func _process(delta: float) -> void:
-	if not _visible_hud:
+	if _mode == Mode.OFF:
 		return
 	var t0 := Time.get_ticks_usec()
 
@@ -113,130 +201,160 @@ func _process(delta: float) -> void:
 	_accum_ms += ms
 	# At least 2 frames between text rebuilds: below ~20 fps a 10 Hz target would mean
 	# rebuilding (and re-shaping) the whole label every frame, which is exactly when the
-	# device can least afford it. Measured effect on the 4 fps software-rendered CI box:
-	# HUD cost per frame roughly halved (see docs/reports/M00_REPORT.md section 7).
+	# device can least afford it.
 	if _since_text_update >= maxi(2, int(round(Engine.get_frames_per_second() / TEXT_UPDATES_PER_SECOND))):
 		_rebuild_text()
-		# Amortised HUD cost per frame, measured around our own work only.
 		_hud_cost_ms = float(Time.get_ticks_usec() - t0) / 1000.0 / float(_since_text_update)
 		_since_text_update = 0
 		_accum_ms = 0.0
 
 
-func _rolling_stats() -> Dictionary:
-	var n := mini(_frame_count, ROLLING_FRAMES)
-	if n <= 0:
-		return {"avg": 0.0, "p95": 0.0}
-	var copy: Array = []
-	copy.resize(n)
-	for i in n:
-		copy[i] = _frame_times[i]
-	copy.sort()
-	var sum := 0.0
-	for v in copy:
-		sum += float(v)
-	var p95 := TestHarness.percentile(copy, 95.0)
-	return {"avg": sum / float(n), "p95": p95}
-
+# --- text -------------------------------------------------------------------------------
 
 func _rebuild_text() -> void:
 	if _label == null:
 		return
-	var stats := _rolling_stats()
-	var lines: Array[String] = []
+	match _mode:
+		Mode.COMPACT:
+			_label.text = _compact_text()
+		Mode.FULL:
+			_label.text = _full_text()
+		Mode.PIPELINE:
+			_label.text = _pipeline_text()
+		_:
+			_label.text = ""
+	_apply_scale()
+	_resize_panel_to_label()
 
-	var over_budget := _hud_cost_ms > FRAME_BUDGET_MS
-	lines.append("VoxelTerrain M00   HUD cost %.3f ms/frame (budget %.1f%s)" % [
-		_hud_cost_ms, FRAME_BUDGET_MS, "  OVER" if over_budget else "  ok",
-	])
-	lines.append("")
-	lines.append("FPS      %-6.0f  frame avg %.2f ms   p95 %.2f ms   worst %.2f ms (%d frames)" % [
-		Engine.get_frames_per_second(), stats["avg"], stats["p95"], _worst_ms, mini(_frame_count, ROLLING_FRAMES),
-	])
-	lines.append("draw calls %-6d  primitives %-9s  objects %-6s" % [
-		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
-		_format_count(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)),
-		_format_count(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)),
-	])
-	lines.append("static mem %.1f MB  peak %.1f MB  video mem %s" % [
-		OS.get_static_memory_usage() / 1048576.0,
-		OS.get_static_memory_peak_usage() / 1048576.0,
-		_format_bytes(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_VIDEO_MEM_USED)),
-	])
 
-	if _world == null:
-		lines.append("")
-		lines.append("(world not attached yet)")
-		_label.text = "\n".join(lines)
-		_resize_panel()
-		return
+func _resize_panel_to_label() -> void:
+	var s := ui_scale()
+	var min_size: Vector2 = _label.get_minimum_size()
+	_panel.size = min_size + Vector2(20.0 * s, 16.0 * s)
 
-	var cam: Node3D = _world.call("fly_camera")
-	var pos := cam.global_position if cam != null else Vector3.ZERO
-	var block_size := 16
-	var cfg: WorldConfig = _world.get("config")
-	if cfg != null:
-		block_size = cfg.mesh_block_size
-	var block := Vector3i(
-		int(floorf(pos.x / float(block_size))),
-		int(floorf(pos.y / float(block_size))),
-		int(floorf(pos.z / float(block_size)))
+
+func _cost_tag() -> String:
+	var over := _hud_cost_ms > FRAME_BUDGET_MS
+	return "hud %.3f ms%s" % [_hud_cost_ms, " OVER" if over else ""]
+
+
+func _compact_text() -> String:
+	var fps := Engine.get_frames_per_second()
+	var p95 := _percentile(95)
+	var pos := Vector3.ZERO
+	var blocks := 0
+	if _world != null:
+		var cam: Node3D = _world.fly_camera()
+		if cam != null:
+			pos = cam.global_position
+		blocks = _world.loaded_block_count()
+	return (
+		"fps %.1f  (%s)\n" % [fps, _cost_tag()]
+		+ "frame p95 %.1f ms\n" % p95
+		+ "pos (%.0f, %.0f, %.0f)\n" % [pos.x, pos.y, pos.z]
+		+ "blocks %d" % blocks
 	)
 
-	lines.append("")
-	lines.append("pos      (%.1f, %.1f, %.1f) m" % [pos.x, pos.y, pos.z])
-	lines.append("chunk    (%d, %d, %d)   voxel (%d, %d, %d)" % [
-		block.x, block.y, block.z, int(floorf(pos.x)), int(floorf(pos.y)), int(floorf(pos.z)),
-	])
-	lines.append("seed     %d   tier %s" % [cfg.seed_value if cfg != null else 0, cfg.quality_tier if cfg != null else "?"])
-	lines.append("gen      %s" % _world.call("generator_display_name"))
-	if cfg != null:
-		lines.append("view     %d chunks (viewer value %d)  vertical ratio %.2f  world y [%d,%d)" % [
-			cfg.view_distance_chunks,
-			_world.call("terrain_report").get("viewer_view_distance", 0),
-			cfg.view_distance_vertical_ratio, cfg.world_y_min, cfg.world_y_max,
-		])
-	lines.append("blocks   loaded %d   voxel payload %s" % [
-		_world.call("loaded_block_count"),
-		_format_bytes(_world.call("engine_stats").get("memory_pools", {}).get("voxel_used", 0)),
-	])
 
+func _full_text() -> String:
+	var lines: Array[String] = []
+	var fps := Engine.get_frames_per_second()
+	var over := _hud_cost_ms > FRAME_BUDGET_MS
+	lines.append("VoxelTerrain M01   HUD cost %.3f ms/frame (budget %.1f%s)   mode=full" % [
+		_hud_cost_ms, FRAME_BUDGET_MS, "  OVER" if over else "  ok"])
+	lines.append("")
+	lines.append("FPS    %.0f    frame avg %.2f ms   p95 %.2f ms   worst %.2f ms (%d frames)" % [
+		fps, _mean_frame(), _percentile(95), _worst_ms, ROLLING_FRAMES])
+	var info_draw := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+	var info_prim := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
+	var info_obj := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
+	lines.append("draw calls %d    primitives %.1fk    objects %.1fk" % [
+		int(info_draw), float(info_prim) / 1000.0, float(info_obj) / 1000.0])
+	lines.append("static mem %.1f MB  peak %.1f MB  video mem %.1f MB" % [
+		float(OS.get_static_memory_usage()) / 1048576.0,
+		float(OS.get_static_memory_peak_usage()) / 1048576.0,
+		float(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_VIDEO_MEM_USED)) / 1048576.0])
+	lines.append("")
+
+	if _world == null:
+		lines.append("(no world bound)")
+		return "\n".join(lines)
+
+	var cam: Node3D = _world.fly_camera()
+	var cfg: WorldConfig = _world.config
+	lines.append("pos    %s m" % str(cam.global_position))
+	lines.append("chunk  %s   voxel %s" % [
+		str(_chunk_of(cam.global_position)), str(_voxel_of(cam.global_position))])
+	lines.append("seed   %d   tier %s" % [cfg.seed_value, cfg.quality_tier])
+	lines.append("gen    %s" % _world.generator_display_name())
+	lines.append("view   %d chunks (%s; tier '%s' default %d)   vertical ratio %.2f   world y [%d,%d)" % [
+		cfg.effective_view_distance_chunks(), cfg.view_distance_source, cfg.quality_tier,
+		cfg.tier_view_distance_chunks(), cfg.view_distance_vertical_ratio, cfg.world_y_min, cfg.world_y_max])
+	lines.append("blocks loaded %d   voxel payload %.1f MB" % [
+		_world.loaded_block_count(), _world.loaded_block_count() * 4096.0 / 1048576.0])
 	lines.append("")
 	lines.append("VoxelTerrain.get_statistics():")
-	var terrain_stats: Dictionary = _world.call("terrain_statistics")
-	if terrain_stats.is_empty():
-		lines.append("   (empty - terrain not streaming?)")
-	else:
-		var keys: Array = terrain_stats.keys()
-		keys.sort()
-		for k in keys:
-			lines.append("   %-32s %s" % [str(k), str(terrain_stats[k])])
-
-	var errs: Array = _world.call("startup_errors")
+	var stats: Dictionary = _world.terrain_statistics()
+	for k in stats:
+		lines.append("  %-28s %s" % [k, str(stats[k])])
 	lines.append("")
-	lines.append("startup errors: %d%s" % [errs.size(), "" if errs.is_empty() else "  -> " + str(errs)])
-
-	_label.text = "\n".join(lines)
-	_resize_panel()
+	lines.append("startup errors: %d" % _world.startup_errors().size())
+	return "\n".join(lines)
 
 
-func _resize_panel() -> void:
-	if _panel == null or _label == null:
-		return
-	_panel.size = Vector2(_label.size.x + 24.0, _label.size.y + 16.0)
+func _pipeline_text() -> String:
+	var lines: Array[String] = []
+	lines.append("resolved worldgen pipeline   (%s)" % _cost_tag())
+	if _world == null or not _world.has_method("pipeline_dump"):
+		lines.append("(world exposes no pipeline)")
+		return "\n".join(lines)
+	var dump: Array = _world.pipeline_dump()
+	if dump.is_empty():
+		lines.append("(pipeline not resolved - registry empty?)")
+		return "\n".join(lines)
+	var timings: Dictionary = _world.pipeline_timings() if _world.has_method("pipeline_timings") else {}
+	lines.append("order  id (v)                    phase     provides")
+	for i in dump.size():
+		var m: Dictionary = dump[i]
+		lines.append("  %2d   %-24s v%d  %-9s %s" % [
+			i + 1, String(m.get("id", "?")), int(m.get("version", 0)),
+			String(m.get("phase", "?")), str(m.get("provides", []))])
+	lines.append("")
+	lines.append("column multiplication factor: %s" % str(_world.pipeline_column_factor() if _world.has_method("pipeline_column_factor") else "?"))
+	lines.append("per-module timing (last region/column batch):")
+	if timings.is_empty():
+		lines.append("  (none recorded yet - the graph backend compiles modules, it does not run them)")
+	for k in timings:
+		lines.append("  %-24s %.3f ms" % [k, float(timings[k]) / 1000.0])
+	return "\n".join(lines)
 
 
-static func _format_count(v: int) -> String:
-	if v >= 1000000:
-		return "%.2fM" % (v / 1000000.0)
-	if v >= 1000:
-		return "%.1fk" % (v / 1000.0)
-	return str(v)
+# --- stats helpers ----------------------------------------------------------------------
+
+func _mean_frame() -> float:
+	var sum := 0.0
+	var n := 0
+	for i in _frame_count if _frame_count < ROLLING_FRAMES else ROLLING_FRAMES:
+		sum += _frame_times[i]
+		n += 1
+	return sum / float(maxi(1, n))
 
 
-static func _format_bytes(v: int) -> String:
-	if v >= 1048576:
-		return "%.1f MB" % (v / 1048576.0)
-	if v >= 1024:
-		return "%.1f kB" % (v / 1024.0)
-	return "%d B" % v
+func _percentile(p: int) -> float:
+	var taken := mini(_frame_count, ROLLING_FRAMES)
+	if taken == 0:
+		return 0.0
+	var sorted := PackedFloat32Array()
+	for i in taken:
+		sorted.append(_frame_times[i])
+	sorted.sort()
+	var idx := clampi(int(float(taken - 1) * float(p) / 100.0), 0, taken - 1)
+	return sorted[idx]
+
+
+func _chunk_of(pos: Vector3) -> Vector3i:
+	return Vector3i(int(floor(pos.x / 16.0)), int(floor(pos.y / 16.0)), int(floor(pos.z / 16.0)))
+
+
+func _voxel_of(pos: Vector3) -> Vector3i:
+	return Vector3i(int(floor(pos.x)), int(floor(pos.y)), int(floor(pos.z)))

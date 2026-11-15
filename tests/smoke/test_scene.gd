@@ -43,7 +43,7 @@ func run(ctx: Dictionary) -> Array:
 	for i in STREAM_FRAMES:
 		await tree.process_frame
 
-	out.append_array(_scene_checks(world))
+	out.append_array(await _scene_checks(world))
 	out.append_array(await _movement_checks(world, tree))
 	out.append_array(await _collision_checks(world, tree))
 
@@ -161,13 +161,18 @@ func _scene_checks(world: Node) -> Array:
 		"terrain streamed %d data blocks in %d frames" % [loaded, STREAM_FRAMES],
 		"statistics keys=%s values=%s" % [str(stats.keys()), str(stats)]))
 
-	# HUD produced real content.
+	# HUD produced real content. M01: the default mode is COMPACT (phone-usable), so the
+	# full-field assertion switches to FULL first - exactly what a player does with F1.
 	var hud: Node = world.get_node_or_null("DebugHUD")
 	var label: Label = null
 	if hud != null:
 		var panel: Node = hud.get_node_or_null("HUDPanel")
 		if panel != null:
 			label = panel.get_node_or_null("HUDText")
+	if hud != null and hud.has_method("set_mode"):
+		hud.call("set_mode", 1)   # FULL
+		for i in 3:
+			await world.get_tree().process_frame
 	var text := label.text if label != null else ""
 	var needed := ["FPS", "draw calls", "static mem", "seed", "gen", "view", "get_statistics"]
 	var missing: Array[String] = []
@@ -176,8 +181,48 @@ func _scene_checks(world: Node) -> Array:
 			missing.append(n)
 	out.append(TestHarness.result(SUITE, "S5k",
 		"PASS" if label != null and missing.is_empty() else "FAIL",
-		"HUD text contains all required fields",
+		"HUD FULL mode contains all required fields",
 		"missing=%s\n%s" % [str(missing), text]))
+
+	# --- S5p: phone usability (reviewer Task 0.4) ----------------------------------------
+	var problems: Array[String] = []
+	if hud == null or not hud.has_method("set_mode"):
+		problems.append("HUD has no mode API")
+	else:
+		# default on a fresh HUD is COMPACT; cycle order must be compact->full->pipeline->off
+		hud.call("set_mode", 0)
+		var names: Array[String] = []
+		for i in 4:
+			names.append(String(hud.call("mode_name")))
+			hud.call("cycle_mode")
+		if names != ["compact", "full", "pipeline", "off"]:
+			problems.append("cycle order is %s" % str(names))
+		hud.call("set_mode", 0)
+		for i in 3:
+			await world.get_tree().process_frame
+		var compact_text := String(label.text) if label != null else ""
+		var compact_lines := compact_text.split("\n").size()
+		if compact_lines > 4:
+			problems.append("compact mode shows %d lines (max 4)" % compact_lines)
+		if compact_text.find("hud ") < 0:
+			problems.append("compact mode dropped the self-measured cost readout")
+		# scaling law: smaller viewport -> smaller scale, clamped
+		var s_small: float = hud.call("compute_scale_for", Vector2(640, 360))
+		var s_ref: float = hud.call("compute_scale_for", Vector2(1280, 720))
+		var s_big: float = hud.call("compute_scale_for", Vector2(3840, 2160))
+		if not (s_small < s_ref and s_ref < s_big and s_big <= 2.0):
+			problems.append("scale law broken: %f / %f / %f" % [s_small, s_ref, s_big])
+		# pipeline page must render without crashing even for the graph backend
+		hud.call("set_mode", 2)
+		for i in 2:
+			await world.get_tree().process_frame
+		var pipe_text := String(label.text) if label != null else ""
+		if pipe_text.find("pipeline") < 0:
+			problems.append("pipeline page has no header")
+		hud.call("set_mode", 1)
+	out.append(TestHarness.result(SUITE, "S5p", "PASS" if problems.is_empty() else "FAIL",
+		"HUD is phone-usable: compact 4-line default, 4-mode cycle, viewport scaling, pipeline page",
+		"\n".join(problems) if not problems.is_empty() else "compact<=4 lines with cost readout; cycle compact->full->pipeline->off; scale 640x360 < 1280x720 < 3840x2160 <= 2.0"))
 
 	var errs: Array = world.call("startup_errors")
 	out.append(TestHarness.result(SUITE, "S5l", "PASS" if errs.is_empty() else "FAIL",

@@ -36,6 +36,10 @@ var _generator: Resource = null
 var _generator_report := {}
 var _library_report := {}
 var _startup_errors: Array[String] = []
+## M01: the resolved worldgen pipeline (registry scan + scheduler). Built ONCE per world
+## build and handed to the adapters through the gen context, so the graph/multipass
+## backends and the HUD pipeline page all describe the SAME resolution.
+var _pipeline: Dictionary = {}
 var _shot_counter := 0
 
 
@@ -63,6 +67,7 @@ func _ready() -> void:
 	_fly_camera.regenerate_seed_requested.connect(_on_regenerate_seed)
 	_fly_camera.teleport_far_requested.connect(_on_teleport_far)
 	_fly_camera.noclip_changed.connect(_on_noclip_changed)
+	_fly_camera.touch_mode_changed.connect(_on_touch_mode_changed)
 
 	if _hud.has_method("set_world"):
 		_hud.call("set_world", self)
@@ -81,7 +86,15 @@ func _build_world(cfg: WorldConfig) -> void:
 		push_error("world: block library: %s" % e)
 		_startup_errors.append("block library: %s" % e)
 
-	var gen_result := AdapterRegistry.build_generator(cfg.generator_id, cfg.seed_value, cfg.to_gen_context())
+	# Resolve the module pipeline first: adapters are driven by it (M01 Task 8), and any
+	# registry/scheduler error is a boot error, never a silent empty world.
+	_pipeline = PipelineBootstrap.build(cfg.to_gen_context())
+	for e in _pipeline["errors"]:
+		push_error("world: pipeline: %s" % e)
+		_startup_errors.append("pipeline: %s" % e)
+	var gen_ctx := cfg.to_gen_context()
+	gen_ctx["pipeline"] = _pipeline
+	var gen_result := AdapterRegistry.build_generator(cfg.generator_id, cfg.seed_value, gen_ctx)
 	_generator = gen_result["generator"]
 	_generator_report = gen_result["report"]
 	if not gen_result["ok"]:
@@ -93,7 +106,7 @@ func _build_world(cfg: WorldConfig) -> void:
 		])
 		_startup_errors.append("generator '%s' failed: %s" % [cfg.generator_id, _generator_report.get("error", "unknown")])
 		if cfg.generator_id != fallback_id:
-			gen_result = AdapterRegistry.build_generator(fallback_id, cfg.seed_value, cfg.to_gen_context())
+			gen_result = AdapterRegistry.build_generator(fallback_id, cfg.seed_value, gen_ctx)
 			_generator = gen_result["generator"]
 			_generator_report = gen_result["report"]
 			cfg = cfg.with_generator(fallback_id)
@@ -114,8 +127,12 @@ func _build_world(cfg: WorldConfig) -> void:
 		# player position; *streaming* legitimately does).
 		_fly_camera.add_child(_viewer)
 
+	if _generator != null and _generator.has_method("set_profiler"):
+		_generator.call("set_profiler", Callable(self, "_tick_usec"))
+
 	_fly_camera.apply_config(cfg)
 	print("world: terrain ready - %s" % cfg.describe())
+	print("world: pipeline = %s" % str(pipeline_dump().map(func(m): return "%s(v%d,%s)" % [m["id"], m["version"], m["phase"]])))
 	print("world: generator = %s" % generator_display_name())
 	print("world: library = %s" % str(_library_report))
 	print("world: terrain = %s" % str(res["report"]))
@@ -168,6 +185,37 @@ func loaded_block_count() -> int:
 	return terrain_adapter.get_loaded_block_count()
 
 
+## M01 pipeline introspection (HUD pipeline page + report).
+func pipeline_dump() -> Array:
+	if _pipeline.is_empty() or not _pipeline.get("ok", false):
+		return []
+	return _pipeline["scheduler"].pipeline_dump()
+
+
+func pipeline_column_factor() -> int:
+	if _pipeline.is_empty() or not _pipeline.get("ok", false):
+		return 0
+	return _pipeline["scheduler"].column_factor()
+
+
+func pipeline_timings() -> Dictionary:
+	if _generator != null and _generator.has_method("timings"):
+		return _generator.call("timings")
+	return {}
+
+
+func pipeline_registry_dump() -> Array:
+	if _pipeline.is_empty():
+		return []
+	return _pipeline["registry"].debug_dump()
+
+
+## The injected clock for spine module timing. Runtime layer: allowed to read Time (the
+## D5 lint only covers core/spine/worldgen/adapters).
+func _tick_usec() -> int:
+	return Time.get_ticks_usec()
+
+
 func startup_errors() -> Array[String]:
 	return _startup_errors
 
@@ -182,9 +230,14 @@ func fly_camera() -> CharacterBody3D:
 
 # --- F-key handlers -------------------------------------------------------------------
 
+func _on_touch_mode_changed(enabled: bool) -> void:
+	if _hud.has_method("set_touch_active"):
+		_hud.call("set_touch_active", enabled)
+
+
 func _on_hud_toggle() -> void:
 	if _hud.has_method("toggle"):
-		_hud.call("toggle")
+		_hud.call("cycle_mode")
 
 
 func _on_screenshot_requested() -> void:

@@ -34,6 +34,7 @@ signal cycle_view_distance_requested
 signal regenerate_seed_requested
 signal teleport_far_requested
 signal noclip_changed(noclip: bool)
+signal touch_mode_changed(enabled: bool)
 
 const SPEED_PRESETS: Array[float] = [2.0, 8.0, 32.0, 128.0, 512.0]
 const DEFAULT_SPEED_INDEX := 2  # 32 m/s, the speed the runtime benchmark uses
@@ -163,6 +164,8 @@ func teleport_to(pos: Vector3) -> void:
 
 
 func set_touch_mode(enabled: bool) -> void:
+	if enabled == touch_mode:
+		return
 	touch_mode = enabled
 	if _overlay != null:
 		_overlay.visible = enabled
@@ -171,6 +174,7 @@ func set_touch_mode(enabled: bool) -> void:
 	if _overlay != null:
 		_overlay.queue_redraw()
 	print("fly_camera: touch mode = %s" % str(enabled))
+	touch_mode_changed.emit(enabled)
 
 
 ## Auto-enable touch mode ONLY on real mobile platforms or when asked for explicitly.

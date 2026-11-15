@@ -1,111 +1,116 @@
-# Architecture - VoxelTerrain M00
+# Architecture - VoxelTerrain (M01 state)
 
-## 0. What M00 is
+## 0. What the project is
 
-A streaming, blocky, **infinite** voxel world rendered in real 3D by Godot 4.7.2 +
-Voxel Tools 1.7 (GDExtension), plus the engineering harness (determinism proofs, perf
-benchmarks, screenshots, reporting) that every later milestone will be measured with.
+An infinite, deterministic, blocky voxel world in Godot 4.7.2 + Voxel Tools 1.7 (GDExtension),
+GDScript only, low-end Android first (3-4 GB RAM, Adreno 610 class). World contract:
+1 block = 1 m, Y in `[-64, 320)` (384 tall, 24 data-block rows), sea level 64, horizontal
+bounds +/-16 777 216 blocks, mesh block 16, TYPE channel 8 bit.
 
-World contract: **1 block = 1 m**, Y in `[-64, 320)` (384 blocks tall, 24 data-block rows
-of 16), sea level 64, horizontal bounds +/-16 777 216 blocks (engine clamp), mesh block
-size 16, TYPE channel forced to 8 bit (halves the payload; 10 block ids fit easily).
+M00 built streaming + camera + HUD + the determinism/perf harness. **M01 built the
+extensibility machinery** every later milestone plugs into: a module spine (registry,
+scheduler, blackboard, contracts, field cache) and re-expressed the M00 hills as the first
+two modules - without changing one voxel of output (X10: M00 goldens reproduce exactly).
 
-Target hardware, in priority order: **low-end Android (3-4 GB RAM, Adreno 610 class)**,
-then desktop. Every rendering and memory choice below is made for the phone first.
-
-## 1. The five layers
+## 1. The layers
 
 ```
                         +-------------------------------------+
-   L5 RUNTIME           | runtime/world  world.tscn world.gd  |  scene, streaming owner,
-                        |              world_config.gd        |  config load/validate
-                        | runtime/debug  fly_camera.gd         |  desktop+touch camera,
-                        |                debug_hud.gd         |  HUD (<0.3 ms/frame)
-                        +-------------------+-----------------+
+   L5 RUNTIME           | runtime/world   world.tscn/.gd      |  scene, streaming owner,
+                        |                 world_config.gd     |  config v2 (tiers, overrides)
+                        | runtime/debug   fly_camera.gd       |  desktop+touch camera
+                        |                 debug_hud.gd        |  compact/full/pipeline/off
+                        +------------------+------------------+
                                             |  Node3D / Resource / Dictionary only
-                        +-------------------v-----------------+
-   L4 ADAPTERS          | adapters/voxel  terrain_adapter.gd  |  owns VoxelTerrain +
-      (ONLY layer that  |                 adapter_registry.gd |  VoxelViewer node graph;
-       names Voxel      |                 i_generator_adapter |  generator selection (F3)
-       Tools classes)   |                 gen_noise2d_adapter |  two generators behind
-                        |                 gen_graph_adapter   |  one interface
-                        |                 block_library_builder| code-built library from
-                        |                 chunk_hasher.gd     |  blocks.json; FNV-1a chunk
-                        +-------------------+-----------------+  fingerprints (T8)
-                                            |
-              +-----------------------------+----------------------------+
-   L3 MODULES | worldgen/  (biomes, climate, caves, ores ... in M01+)    |  EMPTY in M00
-   L2 SPINE   | spine/     (cross-module contracts for M01+)             |  EMPTY in M00
-   L1 CORE    | core/      hash64.gd  json_data.gd  chunk_origins.gd     |  no deps
-              +----------------------------------------------------------+
+                        +-------------------v------------------+
+   L4 ADAPTERS          | adapters/voxel  terrain_adapter.gd  |  owns VoxelTerrain+Viewer
+      (ONLY layer that  |                 adapter_registry.gd |  noise2d | graph | multipass
+       names Voxel      |                 gen_*_adapter.gd    |  graph driven by module plan
+       Tools classes)   |                 block_library_builder| multipass column evaluator
+                        |                 chunk_hasher.gd     |
+                        +-------------------+------------------+
+                        |  spine contracts (plain Resources/RefCounted, no Voxel ids)
+                        +-------------------v------------------+
+   L3 MODULES           | worldgen/  planet/hills_v1.gd       |  FieldProvider, PLANET
+      (content in       |            surface/grass_stone_v1.gd|  TerrainPass, SURFACE, ext 0
+       content/modules) |  (+ user://modules at runtime)      |
+   L2 SPINE             | spine/registry  module_registry.gd  |  disk scan, no hardcoded list
+                        | spine/scheduler pipeline_scheduler.gd| topo per phase, cycle paths
+                        | spine/blackboard gen_blackboard.gd  |  WORLD/REGION/COLUMN channels
+                        | spine/fields    field_tile/cache    |  halo tiles, LRU, budgeted
+                        | spine/contracts module_definition.. |  ModuleDefinition & friends
+                        | spine/executor  pipeline_runner.gd  |  region+column execution
+                        +-------------------+------------------+
+   L1 CORE              | core/  hash64  json_data  chunk_origins  layer_lint
+                        |        rng_streams  fixed_point  channel_id
+                        +-------------------------------------+
 ```
 
-Data flows down as calls, up as plain values. `content/` (blocks.json, world_config.json,
-the atlas) is read by L4/L5 through `JsonData`/`WorldConfig`; generation code never reads
-files at run time.
+Dependency direction is strictly downward. `src/adapters/` is the only layer naming Voxel
+Tools classes; X9/D5 lint enforce it on every test run (`src/core/layer_lint.gd`).
 
-## 2. Built vs empty, honestly
+## 2. The blackboard model
 
-| Path                        | M00 state | Why |
-|-----------------------------|-----------|-----|
-| `src/core/`                 | **built** | FNV-1a 64 hashing, JSON, the fixed 64 chunk origins |
-| `src/spine/`                | **empty** | no cross-module contract exists yet; D5b guards it |
-| `src/worldgen/`             | **empty** | biomes/climate/caves are M01-M07; D5b guards it |
-| `src/adapters/voxel/`       | **built** | the whole Voxel Tools boundary (7 files) |
-| `src/runtime/world/`        | **built** | scene + world owner + immutable config |
-| `src/runtime/debug/`        | **built** | fly camera (desktop+touch), self-measuring HUD |
-| `content/`                  | **built** | 10 blocks, 11-tile generated atlas, world config |
-| `tests/`                    | **built** | hash vectors, extension/assets/generator/scene smoke, determinism D1-D5, gen+runtime benches |
-| `tools/`                    | **built** | API dump, probes, atlas generator, test runner, screenshot capture, compile check |
+Modules never call each other. They publish **named typed channels** into `GenBlackboard`
+and read them back by name:
 
-## 3. Streaming path (what actually happens at run time)
+- Scopes: **WORLD** (constants per world), **REGION** (`FieldTile` grids per 1024x1024
+  blocks, cached in `FieldCache` keyed by channel+region+producer version), **COLUMN**
+  (per 16x16 column, cleared each column).
+- **Unknown channels are legal.** `field.ice_thickness` can be published by a module no
+  other file has heard of; nothing central registers channels (X2 proves the round-trip).
+- Reading a `requires` channel nobody produced is a **boot error** naming consumer, channel
+  and the resolved pipeline (scheduler), never a silent zero.
+- Type flips on a channel are errors naming both observed types.
+- `debug_dump()` lists channel, producer, type, scope and tile dimensions; the HUD
+  pipeline page renders the resolved order plus per-module timings.
 
-1. `world.gd::_ready()` loads+validates `WorldConfig`, asks `BlockLibraryBuilder` for a
-   `VoxelBlockyLibrary` (10 models, index == block id, one opaque atlas material - see the
-   MATERIALS block in `block_library_builder.gd` for why exactly one) and
-   `AdapterRegistry` for the configured generator.
-2. `TerrainAdapter.create()` builds `VoxelTerrain` (mesher `VoxelMesherBlocky`, library,
-   8-bit `VoxelFormat`, bounds, collisions on, `stream` deliberately **unset** -
-   persistence is M12) and a `VoxelViewer` parented to the camera. Viewer
-   `view_distance` = `view_distance_chunks * mesh_block_size` **voxels** (measured),
-   `view_distance_vertical_ratio` 2.0 (measured necessary for flight, see ADR-0003 note
-   and `probe_vratio` evidence in the M00 report).
-3. VoxelEngine's thread pools generate + mesh 16^3 blocks; the HUD reads real stats from
-   `VoxelTerrain.get_statistics()` (7 timing keys) and `VoxelEngine.get_stats()`
-   (block_count, voxel payload, task queues).
-4. `fly_camera.gd` moves a `CharacterBody3D` (noclip default; gravity/collision toggle N);
-   `debug_hud.gd` renders FPS, avg+p95 frame time over 120 frames, draw calls, primitives,
-   static/video memory, position, chunk, seed, generator, view distance and the raw
-   statistics dict, and measures its own amortised cost against the 0.3 ms budget.
+## 3. Resolved pipeline (M01, seed 20260814)
 
-## 4. Determinism architecture
+```
+order  id                      v  phase    requires        provides          extent  factor
+  1    planet.hills_v1         1  PLANET   []              [field.height]    -       -
+  2    surface.grass_stone_v1  1  SURFACE  [field.height]  []                 0      1
+column multiplication factor: 1   (sum over TerrainPass of (1+2*extent)^2)
+```
 
-`ChunkHasher` fingerprints the decompressed TYPE channel of each generated block with
-`Hash64`; `test_determinism.gd` runs D1 (same seed, same process), D2 (separate process vs
-committed goldens), D3/D3b (order independence, incl. a non-uniform chunk), D4 (seed
-sensitivity over surface-straddling chunks), D5/D5b/D5c (lint + empty-later-layers +
-origin coverage) and prints a hash table. See `docs/adr/ADR-0003`.
+Resolution rules: phases run in enum order; inside a phase, topological order over
+same-phase requires/provides edges; tiebreak `priority` ascending then `id` lexicographic
+(X4: 50 shuffled inputs resolve identically); cycles print their path (X5); cross-phase
+back-edges are errors.
 
-## 5. Known engine realities recorded in M00 (do not re-litigate later)
+## 4. Backends (three, selectable in `content/world_config.json`)
 
-- `VoxelMesherBlocky` has **no material property**; materials arrive via
-  `VoxelBlockyLibrary.get_materials()`, and a cube model can carry only **one**
-  (surface index 0). Translucent water therefore needs `VoxelBlockyModelMesh` later.
-- `VoxelBlockyModel.Side` and `VoxelMesherBlocky.Side` enums differ in ordering; code uses
-  the enum constants only.
-- `VoxelGeneratorNoise2D` (a `VoxelGeneratorHeightmap`) hardcodes voxel id 1 above
-  `height_start`; it cannot express strata/caves/ores. Kept as the cheap F3 baseline.
-- `VoxelGraphFunction` node ids must be resolved by **name** (`OutputType` is id 44 and is
-  absent from the `NodeTypeID` enum).
-- Loaded data blocks are **not** scene children in 1.7; count them via
-  `VoxelEngine.get_stats().memory_pools.block_count`.
-- `Input.MOUSE_MODE_CAPTURED` does not stick under `--headless`; captured-mouse routing is
-  proven windowed only (see `docs/TESTING.md`).
+| id | engine object | how modules run | extent support | cost (this box, B1/B3) |
+|---|---|---|---|---|
+| `noise2d` | VoxelGeneratorNoise2D | not module-driven (M00 baseline, hardcoded id 1) | 0 | 0.005 ms/chunk |
+| `graph` (default) | VoxelGeneratorGraph | adapter pushes resolved module PARAMS into named nodes; compiled | 0 only | 0.041 ms/chunk, 1.0 ms/column |
+| `multipass` | VoxelGeneratorScript (self-hosted evaluator) | PipelineRunner runs FieldProviders into tiles, TerrainPasses per column; pass B extent 1 reads neighbour columns | 0 and 1 | 1.4 ms/chunk, 30-34 ms/column |
 
-## 6. Deferred (explicitly NOT in M00)
+`VoxelGeneratorMultipassCB` itself is **not scriptable** in the 1.7 GDExtension
+(`VoxelToolMultipassGenerator`: "Can't inherit from a virtual class"; no passes property -
+`tools/probe_multipass2.gd`), which is why the multipass backend self-hosts the pattern and
+why B3 recommends the graph as the default with multipass reserved for true cross-chunk
+features (M08/M10).
 
-Biomes/climate (M01), seasons/weather/clouds, erosion/rivers (M02+), caves (M06), strata
-(M05), ores, volcanoes, trees/foliage (M09), structures (M10), save/load + streams (M12),
-multiplayer, distant-terrain LOD (M13), translucent water, `VoxelBlockyTypeLibrary`
-migration, GPU generation (`use_gpu_generation`), instancing (`VoxelInstancer`).
-The full list with milestone mapping lives in `docs/reports/M00_REPORT.md` section 11.
+## 5. Determinism architecture (unchanged from M00, extended)
+
+`Hash64` FNV-1a 64 goldens over the decompressed TYPE channel; 64 fixed origins; D2 compares
+a second process against committed goldens - now **two** golden files (M00 backends +
+multipass), nonce-validated so a stale child file can never false-PASS (Task 0.3, X12).
+All randomness flows through `RngStreams` (domain-hashed seeds); decisions compare
+quantised integers via `FixedPoint`; `Time.*`/`rand*()` are linted out of core/spine/
+worldgen/adapters.
+
+## 6. Known engine realities (M00 list, still true)
+
+viewer distance in voxels; cube models carry one material; mesher/model `Side` enums differ;
+graph node ids by name (`OutputType`=44); loaded blocks are not scene children;
+`MOUSE_MODE_CAPTURED` needs a window; MultipassCB not scriptable (new, M01).
+
+## 7. Deferred (not built)
+
+Biomes/climate (M01-next), erosion/rivers (M02+), caves/strata/ores/volcanoes (M05-M08),
+trees/foliage (M09), structures (M10), save/load (M12), multiplayer, distant LOD (M13),
+translucent water, VoxelBlockyTypeLibrary migration, GPU generation, disk field cache (M02),
+on-device Android validation. Full list with milestone mapping: M00/M01 reports section 11.

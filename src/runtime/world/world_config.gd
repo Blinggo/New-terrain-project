@@ -14,7 +14,17 @@ extends RefCounted
 
 const DEFAULT_PATH := "res://content/world_config.json"
 const VALID_TIERS: Array[String] = ["low", "medium", "high"]
-const VALID_GENERATORS: Array[String] = ["noise2d", "graph"]
+const VALID_GENERATORS: Array[String] = ["noise2d", "graph", "multipass"]
+
+## M01 / Task 7 - quality tiers now own CONCRETE budgets instead of being a label.
+## low/medium/high view chunks and field-cache budgets are the numbers the task fixed;
+## instance_density and max_gen_tasks_per_frame for medium/high are our documented choices
+## (low's 0.4 / 2 are the task's). Anything a tier does not fix stays a separate knob.
+const TIER_BUDGETS := {
+	"low":    {"view_chunks": 6,  "field_cache_mb": 24, "instance_density": 0.4, "max_gen_tasks_per_frame": 2},
+	"medium": {"view_chunks": 8,  "field_cache_mb": 48, "instance_density": 0.7, "max_gen_tasks_per_frame": 4},
+	"high":   {"view_chunks": 12, "field_cache_mb": 96, "instance_density": 1.0, "max_gen_tasks_per_frame": 8},
+}
 const VIEW_DISTANCE_CYCLE: Array[int] = [6, 8, 12]
 
 # --- world shape (T4) -----------------------------------------------------------------
@@ -27,8 +37,16 @@ var quality_tier: String = "low"
 
 # --- what to build --------------------------------------------------------------------
 var generator_id: String = "noise2d"
+## >0 = explicit override of the tier's default view distance; <=0 = "use the tier default".
+## M01 / Task 7: the tier owns the budget, the config may override it, and the HUD says
+## which one won (view_distance_source).
 var view_distance_chunks: int = 8
 var gen_params: Dictionary = {}
+
+# --- M01 worldgen -----------------------------------------------------------------------
+var worldgen_version: int = 1
+## Per-id module overrides: {"planet.hills_v1": {"enabled": false, "params": {...}}}.
+var modules_overrides: Dictionary = {}
 
 # --- streaming knobs ------------------------------------------------------------------
 var view_distance_vertical_ratio: float = 1.0
@@ -68,6 +86,8 @@ static func load_config(path: String = DEFAULT_PATH) -> WorldConfig:
 		return cfg
 
 	cfg.config_version = JsonData.get_int(data, "config_version", 1)
+	cfg.worldgen_version = JsonData.get_int(data, "worldgen_version", 1)
+	cfg.modules_overrides = JsonData.get_dict(data, "modules")
 	cfg.seed_value = JsonData.get_int(data, "seed", 0)
 	cfg.generator_id = JsonData.get_string(data, "generator", "noise2d")
 	cfg.view_distance_chunks = JsonData.get_int(data, "view_distance_chunks", 8)
@@ -111,8 +131,23 @@ func _validate() -> void:
 		validation_errors.append("quality_tier '%s' must be one of %s" % [quality_tier, str(VALID_TIERS)])
 	if not generator_id in VALID_GENERATORS:
 		validation_errors.append("generator '%s' must be one of %s" % [generator_id, str(VALID_GENERATORS)])
-	if view_distance_chunks <= 0:
-		validation_errors.append("view_distance_chunks must be > 0")
+	if view_distance_chunks < 0:
+		validation_errors.append(
+			"view_distance_chunks must be >= 0 (0 or omitted = use the quality tier default; got %d)"
+			% view_distance_chunks
+		)
+	for mod_id in modules_overrides:
+		var entry: Dictionary = modules_overrides[mod_id]
+		for key in entry:
+			if not (key in ["enabled", "params"]):
+				validation_warnings.append(
+					"modules['%s'] has unknown key '%s' (expected 'enabled' and/or 'params'); ignored"
+					% [String(mod_id), String(key)]
+				)
+		if entry.has("enabled") and not (entry["enabled"] is bool):
+			validation_errors.append("modules['%s'].enabled must be a bool" % String(mod_id))
+		if entry.has("params") and not (entry["params"] is Dictionary):
+			validation_errors.append("modules['%s'].params must be an object" % String(mod_id))
 	if block_size <= 0.0:
 		validation_errors.append("block_size must be > 0 (M00 contract: 1 block = 1 metre)")
 	elif not is_equal_approx(block_size, 1.0):
@@ -130,6 +165,39 @@ func is_valid() -> bool:
 	return validation_errors.is_empty()
 
 
+# --- M01 tier budgets -------------------------------------------------------------------
+
+func tier_budget() -> Dictionary:
+	return TIER_BUDGETS.get(quality_tier, TIER_BUDGETS["low"])
+
+
+func tier_view_distance_chunks() -> int:
+	return int(tier_budget()["view_chunks"])
+
+
+func tier_field_cache_bytes() -> int:
+	return int(tier_budget()["field_cache_mb"]) * 1024 * 1024
+
+
+func tier_instance_density() -> float:
+	return float(tier_budget()["instance_density"])
+
+
+func tier_max_gen_tasks_per_frame() -> int:
+	return int(tier_budget()["max_gen_tasks_per_frame"])
+
+
+## The view distance the world actually streams at: config override if set, else tier.
+func effective_view_distance_chunks() -> int:
+	return view_distance_chunks if view_distance_chunks > 0 else tier_view_distance_chunks()
+
+
+## For the HUD: who won, the override or the tier.
+var view_distance_source: String = "" :
+	get:
+		return "config override" if view_distance_chunks > 0 else "tier '%s' default" % quality_tier
+
+
 func clone() -> WorldConfig:
 	var c := WorldConfig.new()
 	c.seed_value = seed_value
@@ -141,6 +209,8 @@ func clone() -> WorldConfig:
 	c.generator_id = generator_id
 	c.view_distance_chunks = view_distance_chunks
 	c.gen_params = gen_params.duplicate(true)
+	c.worldgen_version = worldgen_version
+	c.modules_overrides = modules_overrides.duplicate(true)
 	c.view_distance_vertical_ratio = view_distance_vertical_ratio
 	c.bounds_half_extent_xz = bounds_half_extent_xz
 	c.mesh_block_size = mesh_block_size
@@ -187,6 +257,11 @@ func to_gen_context() -> Dictionary:
 	return {
 		"seed": seed_value,
 		"gen_params": gen_params.duplicate(true),
+		"quality_tier": quality_tier,
+		"worldgen_version": worldgen_version,
+		"modules_overrides": modules_overrides.duplicate(true),
+		"field_cache_budget_bytes": tier_field_cache_bytes(),
+		"view_distance_chunks": effective_view_distance_chunks(),
 		"world_y_min": world_y_min,
 		"world_y_max": world_y_max,
 		"sea_level": sea_level,
@@ -197,7 +272,8 @@ func to_gen_context() -> Dictionary:
 
 func to_terrain_context() -> Dictionary:
 	return {
-		"view_distance_chunks": view_distance_chunks,
+		"view_distance_chunks": effective_view_distance_chunks(),
+		"view_distance_source": view_distance_source,
 		"view_distance_vertical_ratio": view_distance_vertical_ratio,
 		"bounds_half_extent_xz": bounds_half_extent_xz,
 		"mesh_block_size": mesh_block_size,

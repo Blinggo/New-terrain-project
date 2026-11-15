@@ -1,12 +1,12 @@
 {
 	"blocked": 3,
-	"elapsed_seconds": 5.763,
+	"elapsed_seconds": 223.098,
 	"exit_code": 0,
 	"fail": 0,
 	"godot": "4.7.2-stable (official)",
 	"headless": false,
 	"os": "Linux",
-	"pass": 84,
+	"pass": 108,
 	"results": [
 		{
 			"evidence": "  fnv1a64(\"\"                                            ) = cbf29ce484222325\n  fnv1a64(\"a\"                                           ) = af63dc4c8601ec8c\n  fnv1a64(\"b\"                                           ) = af63df4c8601f1a5\n  fnv1a64(\"foobar\"                                      ) = 85944171f73967e8\n  fnv1a64(\"hello world\"                                 ) = 779a65e7023cd2e7\n  fnv1a64(\"The quick brown fox jumps over the lazy dog\" ) = f3f9b7f5e7e47110",
@@ -303,21 +303,21 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "ids=[\"noise2d\", \"graph\"] next(noise2d)=graph next(graph)=noise2d unknown->null=true",
+			"evidence": "ids=[\"noise2d\", \"graph\", \"multipass\"] next(noise2d)=graph next(graph)=multipass next(multipass)=noise2d unknown->null=true",
 			"id": "S4j",
-			"message": "adapter registry exposes 2 ids and cycles F3-style",
+			"message": "adapter registry exposes 3 ids and cycles F3-style",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "noise2d: surface y=63 (seed 12345) vs y=63 (seed 54321)\nnoise2d: second column y=59 vs y=66\ngraph: surface y=64 (seed 12345) vs y=64 (seed 54321)\ngraph: second column y=59 vs y=71",
+			"evidence": "noise2d: surface y=63 (seed 12345) vs y=63 (seed 54321)\nnoise2d: second column y=59 vs y=66\ngraph: surface y=64 (seed 12345) vs y=64 (seed 54321)\ngraph: second column y=59 vs y=71\nmultipass: surface y=64 (seed 12345) vs y=64 (seed 54321)\nmultipass: second column y=59 vs y=71",
 			"id": "S4k",
 			"message": "the seed visibly changes the terrain for every adapter",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "noise2d  216 chunks in 3.0 ms (0.014 ms/chunk) relief=21 ids=[0, 1] grass=[117, 128, 129, 121, 128, 132]\ngraph    216 chunks in 16.1 ms (0.074 ms/chunk) relief=29 ids=[0, 1, 3] grass=[3, 3, 3, 3, 3, 3]",
+			"evidence": "noise2d  216 chunks in 2.0 ms (0.009 ms/chunk) relief=21 ids=[0, 1] grass=[117, 128, 129, 121, 128, 132]\ngraph    216 chunks in 9.9 ms (0.046 ms/chunk) relief=29 ids=[0, 1, 3] grass=[3, 3, 3, 3, 3, 3]\nmultipass 216 chunks in 2139.8 ms (9.906 ms/chunk) relief=29 ids=[0, 1, 3] grass=[0, 0, 3, 0, 0, 3]",
 			"id": "S4l",
 			"message": "per-adapter cost and variety measured identically (report input)",
 			"status": "PASS",
@@ -387,7 +387,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "VoxelRoot:<Node3D#128580585332>",
+			"evidence": "VoxelRoot:<Node3D#162487338877>",
 			"id": "S5b",
 			"message": "world.tscn contains the VoxelRoot placeholder",
 			"status": "PASS",
@@ -408,7 +408,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "VoxelGeneratorNoise2D",
+			"evidence": "VoxelGeneratorGraph",
 			"id": "S5e",
 			"message": "terrain has a generator attached",
 			"status": "PASS",
@@ -422,7 +422,7 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "VoxelViewer:<VoxelViewer#129738213278>",
+			"evidence": "VoxelViewer:<VoxelViewer#164030842810>",
 			"id": "S5g",
 			"message": "a VoxelViewer node is parented to the fly camera",
 			"status": "PASS",
@@ -443,16 +443,23 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "statistics keys=[\"time_detect_required_blocks\", \"time_request_blocks_to_load\", \"time_process_load_responses\", \"time_request_blocks_to_update\", \"dropped_block_loads\", \"dropped_block_meshs\", \"updated_blocks\"] values={ \"time_detect_required_blocks\": 2, \"time_request_blocks_to_load\": 1, \"time_process_load_responses\": 0, \"time_request_blocks_to_update\": 0, \"dropped_block_loads\": 0, \"dropped_block_meshs\": 0, \"updated_blocks\": 0 }",
+			"evidence": "statistics keys=[\"time_detect_required_blocks\", \"time_request_blocks_to_load\", \"time_process_load_responses\", \"time_request_blocks_to_update\", \"dropped_block_loads\", \"dropped_block_meshs\", \"updated_blocks\"] values={ \"time_detect_required_blocks\": 1, \"time_request_blocks_to_load\": 0, \"time_process_load_responses\": 0, \"time_request_blocks_to_update\": 0, \"dropped_block_loads\": 0, \"dropped_block_meshs\": 0, \"updated_blocks\": 0 }",
 			"id": "S5j",
-			"message": "terrain streamed 410 data blocks in 260 frames",
+			"message": "terrain streamed 499 data blocks in 260 frames",
 			"status": "PASS",
 			"suite": "smoke"
 		},
 		{
-			"evidence": "missing=[]\nVoxelTerrain M00   HUD cost 0.019 ms/frame (budget 0.3  ok)\n\nFPS      145     frame avg 6.94 ms   p95 6.94 ms   worst 150.00 ms (120 frames)\ndraw calls 0       primitives 0          objects 0     \nstatic mem 109.6 MB  peak 109.7 MB  video mem 0 B\n\npos      (8.0, 90.0, 8.0) m\nchunk    (0, 5, 0)   voxel (8, 90, 8)\nseed     20260814   tier low\ngen      Noise2D heightmap (built-in VoxelGeneratorNoise2D)\nview     8 chunks (viewer value 128)  vertical ratio 2.00  world y [-64,320)\nblocks   loaded 410   voxel payload 1.6 MB\n\nVoxelTerrain.get_statistics():\n   dropped_block_loads              0\n   dropped_block_meshs              0\n   time_detect_required_blocks      2\n   time_process_load_responses      0\n   time_request_blocks_to_load      1\n   time_request_blocks_to_update    0\n   updated_blocks                   0\n\nstartup errors: 0",
+			"evidence": "missing=[]\nVoxelTerrain M01   HUD cost 0.022 ms/frame (budget 0.3  ok)   mode=full\n\nFPS    145    frame avg 6.90 ms   p95 6.94 ms   worst 145.12 ms (120 frames)\ndraw calls 0    primitives 0.0k    objects 0.0k\nstatic mem 113.5 MB  peak 113.6 MB  video mem 0.0 MB\n\npos    (8.0, 90.0, 8.0) m\nchunk  (0, 5, 0)   voxel (8, 90, 8)\nseed   20260814   tier low\ngen    VoxelGeneratorGraph (built in code, OutputType -> TYPE)\nview   8 chunks (config override; tier 'low' default 6)   vertical ratio 2.00   world y [-64,320)\nblocks loaded 499   voxel payload 1.9 MB\n\nVoxelTerrain.get_statistics():\n  time_detect_required_blocks  1\n  time_request_blocks_to_load  0\n  time_process_load_responses  0\n  time_request_blocks_to_update 0\n  dropped_block_loads          0\n  dropped_block_meshs          0\n  updated_blocks               0\n\nstartup errors: 0",
 			"id": "S5k",
-			"message": "HUD text contains all required fields",
+			"message": "HUD FULL mode contains all required fields",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "compact<=4 lines with cost readout; cycle compact->full->pipeline->off; scale 640x360 < 1280x720 < 3840x2160 <= 2.0",
+			"id": "S5p",
+			"message": "HUD is phone-usable: compact 4-line default, 4-mode cycle, viewport scaling, pipeline page",
 			"status": "PASS",
 			"suite": "smoke"
 		},
@@ -527,9 +534,107 @@
 			"suite": "smoke"
 		},
 		{
-			"evidence": "is_on_floor=true start_y=130.0 final_y=63.0 min_y=63.0 frames=342",
+			"evidence": "is_on_floor=true start_y=130.0 final_y=64.0 min_y=64.0 frames=340",
 			"id": "S5o",
 			"message": "gravity+collision mode lands on generated terrain (A6)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "distinct first draws: 1000/1000, collisions=[], existing stream stable after adding a domain=true, chance(0)=false chance(1)=true stateless=true",
+			"id": "X3",
+			"message": "1000 domains pairwise independent; new domains do not perturb existing streams",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "dump rows=3, sample={ \"channel\": \"field.height\", \"producer\": \"planet.hills_v1\", \"type\": \"FLOAT\", \"scope\": \"world\" }",
+			"id": "S6a",
+			"message": "blackboard: scopes, unknown-channel legality, loud missing reads, typed mismatch errors",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "core=8 halo=1 width=10 spacing=4 verified",
+			"id": "S6b",
+			"message": "field tile halo geometry, nearest and bilinear sampling",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "identical=true, cache before={ \"entries\": 1, \"used_bytes\": 18560, \"budget_bytes\": 25165824, \"hits\": 1, \"misses\": 1, \"evictions\": 0, \"recomputes\": 0 } after={ \"entries\": 1, \"used_bytes\": 18560, \"budget_bytes\": 25165824, \"hits\": 2, \"misses\": 3, \"evictions\": 0, \"recomputes\": 0 }",
+			"id": "X8",
+			"message": "evicted tile recomputes bit-identical (cache misses are invisible)",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "order=[\"planet.hills_v1\", \"tests.chain_provider\", \"tests.tie_a\", \"tests.tie_b\", \"surface.grass_stone_v1\", \"tests.chain_consumer\"]",
+			"id": "X4",
+			"message": "50 shuffled registry inputs resolve to an identical pipeline order",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "resolved=false errors=scheduler: dependency cycle in phase PLANET: tests.cyc_a -> tests.cyc_c -> tests.cyc_b -> tests.cyc_a",
+			"id": "X5",
+			"message": "a->b->c->a cycle produces a boot error containing the cycle path",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "resolved=false errors=scheduler: module 'tests.needy' requires channel 'field.nobody_makes' but NO enabled module provides it. Resolved pipeline so far: [tests.needy]",
+			"id": "X6",
+			"message": "missing producer errors name the consumer AND the channel",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "errors=module registry: duplicate module id 'tests.dup' in BOTH user://modules/dup_a.tres and user://modules/dup_b.tres - ids are globally unique; bump one of them, modules listed=3",
+			"id": "X7",
+			"message": "duplicate module id errors naming BOTH file paths",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "factors={ \"tests.pass0\": 1, \"tests.pass1\": 9 } total=10 (expected pass0=1, pass1=9, total=10)",
+			"id": "S6c",
+			"message": "scheduler reports per-pass extent factors and the total column multiplication",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "registered=true (pipeline 2 -> 3 modules), mismatched origins=[]",
+			"id": "X1",
+			"message": "adding a no-op module changes NOTHING: all 64 M00 graph goldens reproduce",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "observed=42.0 (expected 42.0); zero pre-existing files edited: both modules are new files under user://modules/",
+			"id": "X2",
+			"message": "a channel no spec knows about round-trips producer -> blackboard -> consumer",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "message='second process reproduced 127/128 golden hashes (1 mismatch)'\nmismatches=[\"origin -1000016,-64,1000016: golden -1499800946783158039 != fresh -1499800943722512890\"]",
+			"id": "X12a",
+			"message": "a corrupted golden produces a mismatch-count message, never a spawn misdiagnosis",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "wrong-nonce error='STALE child result file: nonce 'nonce-from-an-earlier-run' != nonce passed to child 'nonce-the-parent-actually-sent' (pid in file 1). Refusing to trust it; the child either never ran or never wrote.'; matching-nonce ok=true",
+			"id": "X12b",
+			"message": "a result file whose nonce does not match is rejected; a matching nonce is accepted",
+			"status": "PASS",
+			"suite": "smoke"
+		},
+		{
+			"evidence": "child exit code=1 (OS.execute conflates this with spawn failure - the fix reads the nonce-validated file instead)\nproblems=[]",
+			"id": "X12c",
+			"message": "end-to-end: a mismatching child exits 1 and its REAL verdict reaches the parent",
 			"status": "PASS",
 			"suite": "smoke"
 		},
@@ -548,37 +653,51 @@
 			"suite": "determinism"
 		},
 		{
-			"evidence": "origin=-6547600,240,-2781472\nnoise2d: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\ngraph: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH",
+			"evidence": "seed=20260814 block=16 type_depth=8-bit",
+			"id": "D1/multipass",
+			"message": "64/64 chunk hashes identical across two runs in one process",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "origin=-6547600,240,-2781472\nnoise2d: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\ngraph: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH\nmultipass: alone=318de7efca7dfdfd after40=318de7efca7dfdfd MATCH",
 			"id": "D3",
 			"message": "chunk #40 hashes identically alone and after generating #1..#39",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "origin=37568,64,51696\nnoise2d: alone=add7b16fc21ddda3 after24=add7b16fc21ddda3 MATCH uniform=false non_air=1104/4096\ngraph: alone=5ec659db44119a4f after24=5ec659db44119a4f MATCH uniform=false non_air=1533/4096",
+			"evidence": "origin=37568,64,51696\nnoise2d: alone=add7b16fc21ddda3 after24=add7b16fc21ddda3 MATCH uniform=false non_air=1104/4096\ngraph: alone=5ec659db44119a4f after24=5ec659db44119a4f MATCH uniform=false non_air=1533/4096\nmultipass: alone=84f9ca0c67d6feb8 after24=84f9ca0c67d6feb8 MATCH uniform=false non_air=1536/4096",
 			"id": "D3b",
 			"message": "order independence on a NON-UNIFORM surface-band chunk",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "noise2d: 10/64 hashes changed when the seed changed by 1\ngraph: 10/64 hashes changed when the seed changed by 1\nnoise2d: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\ngraph: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1",
+			"evidence": "noise2d: 10/64 hashes changed when the seed changed by 1\ngraph: 10/64 hashes changed when the seed changed by 1\nmultipass: 9/64 hashes changed when the seed changed by 1\nnoise2d: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\ngraph: 7/24 surface-band chunks straddle the surface; 7 of those changed with seed+1\nmultipass: 6/24 surface-band chunks straddle the surface; 6 of those changed with seed+1",
 			"id": "D4",
 			"message": "a different seed produces different hashes for every adapter",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "banned: [\"randf(\", \"randi(\", \"Time.get_\", \"randomize(\"]\ndirs: [\"res://src/worldgen\", \"res://src/adapters\", \"res://src/core\"]\nsrc/runtime/debug and src/runtime/world may use Time.* (HUD timing, screenshot names, F5 seed); they are never scanned.",
+			"evidence": "banned calls: [\"randf(\", \"randi(\", \"randomize(\", \"Time.get_\"]\nbanned identifiers outside adapters: [\"Voxel\", \"ZN_\"]\ndirs: [\"res://src/core\", \"res://src/spine\", \"res://src/worldgen\", \"res://src/adapters\"]\nsrc/runtime/debug and src/runtime/world may use Time.* (HUD timing, screenshot names, F5 seed); they are never scanned.",
 			"id": "D5",
-			"message": "no banned non-deterministic calls in generation code (10 scripts scanned)",
+			"message": "no banned non-deterministic calls and no Voxel identifiers outside adapters (31 scripts scanned)",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "files present: [\"res://src/worldgen/README.md\", \"res://src/spine/README.md\"]",
-			"id": "D5b",
-			"message": "src/worldgen and src/spine are still empty in M00 (no later milestones built)",
+			"evidence": "scanned: [\"res://src/core\", \"res://src/spine\", \"res://src/worldgen\"]",
+			"id": "X9",
+			"message": "layering lint: no Voxel*/ZN_* identifier in core/, spine/, worldgen/",
+			"status": "PASS",
+			"suite": "determinism"
+		},
+		{
+			"evidence": "modules=[\"planet_hills_v1.tres\", \"surface_grass_stone_v1.tres\"] (expected [\"planet_hills_v1.tres\", \"surface_grass_stone_v1.tres\"])\nbanned-vocabulary hits=[]",
+			"id": "D5b/B17",
+			"message": "content/modules holds exactly the M01 module set; no later-milestone content in spine/worldgen",
 			"status": "PASS",
 			"suite": "determinism"
 		},
@@ -597,17 +716,66 @@
 			"suite": "determinism"
 		},
 		{
-			"evidence": "process pid=17378\nnoise2d: 64/64 match\ngraph: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json\nenv match: false",
+			"evidence": "process pid=38419\nnoise2d: 64/64 match\ngraph: 64/64 match\nmultipass: 64/64 match\ngolden: res://tests/determinism/golden_hashes.json + res://tests/determinism/golden_hashes_multipass.json\nenv match: true\nchild process exit code: 0",
 			"id": "D2",
-			"message": "second process reproduced 128 committed golden hashes",
+			"message": "second process reproduced 192/192 committed golden hashes (0 mismatches)",
 			"status": "PASS",
 			"suite": "determinism"
 		},
 		{
-			"evidence": "",
-			"id": "P-GEN",
-			"message": "generation benchmark skipped via --skip-perf",
+			"evidence": "os=Linux (Debian GNU/Linux 13 (trixie)) arch=x86_64\ncpu=Intel(R) Xeon(R) Processor @ 2.60GHz x2 threads\nram_total=1982.8 MiB ram_available=693.6 MiB\ngpu=<none> vendor=<none>\nrenderer=mobile display_server=headless headless=true\ngodot=4.7.2-stable (official) hash=ed1daf0bf001b61586d9930840f2f1394092c079\nvoxel_tools=1.7.0 GDExtension\nscope=single-threaded generate_block() only; EXCLUDES meshing, VoxelEngine thread pools,\n  block loading, GPU upload and anything the real streaming pipeline does (see B1 header)\n\nBLOCKED as a statement about the target device. This build machine is FAR weaker\nthan the 3-4 GB RAM / Adreno 610-class Android target: only 2 CPU threads, 1982.8 MiB RAM, no GPU reported by RenderingServer (software rasterisation).\nThe per-chunk costs below are still valid AS A RELATIVE COMPARISON of the two\nadapters on identical hardware (that is what B2 uses them for) and as a\nregression baseline for this machine. They must NOT be quoted as phone numbers.",
+			"id": "B0",
+			"message": "benchmark environment recorded - machine too weak for device claims",
 			"status": "BLOCKED",
+			"suite": "perf"
+		},
+		{
+			"evidence": "chunks=24576 (32x32 block footprint, 24 rows each)\ntotal_ms=116.08\nmean_ms_per_chunk=0.0047\np50_ms=0.0010\np95_ms=0.0280\nmax_ms=0.0890\nchunks_per_second=211720\npeak_static_memory_delta=0.0 MiB (before=157.5 after=157.5)\nno debug_measure_microseconds_per_voxel() on this generator class",
+			"id": "B1/noise2d",
+			"message": "noise2d: 0.0047 ms/chunk mean, 211720 chunks/s over 24576 chunks",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "chunks=24576 (32x32 block footprint, 24 rows each)\ntotal_ms=1080.21\nmean_ms_per_chunk=0.0440\np50_ms=0.0010\np95_ms=0.2560\nmax_ms=0.8690\nchunks_per_second=22751\npeak_static_memory_delta=0.0 MiB (before=157.5 after=157.5)\nVoxelGeneratorGraph.debug_measure_microseconds_per_voxel()=0.189 us/voxel (engine's own estimate)",
+			"id": "B1/graph",
+			"message": "graph: 0.0440 ms/chunk mean, 22751 chunks/s over 24576 chunks",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "chunks=24576 (32x32 block footprint, 24 rows each)\ntotal_ms=34789.21\nmean_ms_per_chunk=1.4156\np50_ms=0.1950\np95_ms=0.2780\nmax_ms=230.3170\nchunks_per_second=706\npeak_static_memory_delta=0.0 MiB (before=157.5 after=157.5)\nno debug_measure_microseconds_per_voxel() on this generator class",
+			"id": "B1/multipass",
+			"message": "multipass: 1.4156 ms/chunk mean, 706 chunks/s over 24576 chunks",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "noise2d  0.1191 ms/chunk over 2048 chunks; non_air=2771627/8388608 voxels\ngraph    0.1431 ms/chunk over 2048 chunks; non_air=2802650/8388608 voxels\nmultipass 2.2045 ms/chunk over 2048 chunks; non_air=2802560/8388608 voxels",
+			"id": "B2",
+			"message": "per-adapter generation cost compared (M01 recommendation input)",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "columns=1024 mean=30.585 p50=29.529 p95=38.033 max=53.664 ms\ncolumn compiles=1024 pass_b applications=0 field_cache={ \"entries\": 4, \"used_bytes\": 74240, \"budget_bytes\": 25165824, \"hits\": 2044, \"misses\": 4, \"evictions\": 0, \"recomputes\": 0 }",
+			"id": "B3/e0",
+			"message": "multipass extent 0: 30.585 ms/column over 1024 columns (1.2744 ms/chunk equivalent)",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "columns=1024 mean=35.024 p50=4.842 p95=141.594 max=240.306 ms\ncolumn compiles=1127 pass_b applications=279 field_cache={ \"entries\": 4, \"used_bytes\": 74240, \"budget_bytes\": 25165824, \"hits\": 2250, \"misses\": 4, \"evictions\": 0, \"recomputes\": 0 }",
+			"id": "B3/e1",
+			"message": "multipass extent 1: 35.024 ms/column over 1024 columns (1.4593 ms/chunk equivalent)",
+			"status": "PASS",
+			"suite": "perf"
+		},
+		{
+			"evidence": "column cost (16x384x16), this machine, single-threaded:\n  graph (compiled, extent 0 by construction):  0.994 ms/column\n  multipass extent 0 (GDScript passes):         30.585 ms/column (30.8x graph)\n  multipass extent 1 (+ neighbour cliff pass):  35.024 ms/column (35.2x graph)\n\nRECOMMENDATION (M02+): keep the compiled graph as the default backend, with analytic\n  extent-0 stamps for flora/structure density. Reserve the multipass evaluator for the\n  few features that truly need cross-chunk reads (M08 trunks crossing chunk borders,\n  M10 structures). Reasons, measured here:\n  * multipass costs 30.8x the graph per column in pure GDScript, and that gap grows with\n    every neighbour-aware pass added (extent 1 already adds 4.4 ms/column);\n  * VoxelGeneratorMultipassCB is NOT scriptable in the 1.7 GDExtension\n    (probe_multipass2.gd: 'Can't inherit from a virtual class', no passes property),\n    so there is no engine-accelerated multipass path to move this into;\n  * MultipassCB also has no LOD support, which the distant-terrain milestone (M13) needs.\n  The graph path therefore stays default; 'multipass' remains selectable in config for\n  the features above and for cross-checking (55/64 chunks match the graph on seed 20260814).",
+			"id": "B3/rec",
+			"message": "multipass vs graph column-cost verdict",
+			"status": "PASS",
 			"suite": "perf"
 		},
 		{
@@ -619,6 +787,6 @@
 		}
 	],
 	"threads": 2,
-	"total": 87,
+	"total": 111,
 	"voxel_tools": "1.7.0 GDExtension (release)"
 }

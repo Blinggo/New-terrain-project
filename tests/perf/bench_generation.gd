@@ -53,6 +53,7 @@ func run(_ctx: Dictionary) -> Array:
 	for id in AdapterRegistry.ids():
 		out.append(_bench_adapter(id))
 	out.append(_comparison())
+	out.append_array(_bench_multipass_columns())
 	return out
 
 
@@ -306,6 +307,96 @@ func _recommended(express: Dictionary, faster: String, slower: String, _ratio: f
 	if best_ids == 0:
 		return faster
 	return best
+
+
+## Task 9 / B3: price the neighbour-aware backend per COLUMN (16 x 384 x 16), at extent 0
+## (pass A only) and extent 1 (pass A + the cliff pass B), over the same 32x32 column
+## footprint as B1 so the numbers are comparable with M00's per-chunk figures
+## (ms/column = 24 x ms/chunk for an equivalent backend).
+func _bench_multipass_columns() -> Array:
+	var out: Array = []
+	var cols := BENCH_FOOTPRINT / BENCH_COLUMN_STRIDE
+	var origins: Array = []
+	for xi in cols:
+		for zi in cols:
+			origins.append(Vector3i(
+				(xi - cols / 2) * BENCH_COLUMN_STRIDE, 0, (zi - cols / 2) * BENCH_COLUMN_STRIDE))
+
+	var per_variant := {}
+	for pass_b in [false, true]:
+		var ctx := _cfg.to_gen_context()
+		ctx["multipass_pass_b"] = pass_b
+		var built := AdapterRegistry.build_generator("multipass", _cfg.seed_value, ctx)
+		if not built["ok"]:
+			out.append(TestHarness.fail(SUITE, "B3/e%d" % (1 if pass_b else 0),
+				"multipass generator failed to build (pass_b=%s)" % str(pass_b), str(built["report"])))
+			continue
+		var gen: Resource = built["generator"]
+		var format := VoxelFormat.new()
+		format.type_depth = VoxelBuffer.DEPTH_8_BIT
+		var block_vec := Vector3i(_cfg.mesh_block_size, _cfg.mesh_block_size, _cfg.mesh_block_size)
+		var times: Array = []
+		for col_variant in origins:
+			var col: Vector3i = col_variant
+			var t0 := Time.get_ticks_usec()
+			for row in ROWS_PER_COLUMN:
+				var buf: VoxelBuffer = format.create_buffer(block_vec)
+				gen.call("generate_block", buf, Vector3i(col.x, _cfg.world_y_min + row * _cfg.mesh_block_size, col.z), 0)
+			times.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+		var stats := _stats(times)
+		var mean_ms: float = TestHarness.mean(times) if not times.is_empty() else 0.0
+		var gen_mp: MultipassColumnGenerator = gen
+		var st: Dictionary = gen_mp.stats()
+		per_variant[pass_b] = mean_ms
+		out.append(TestHarness.ok(SUITE, "B3/e%d" % (1 if pass_b else 0),
+			"multipass extent %d: %.3f ms/column over %d columns (%.4f ms/chunk equivalent)" % [
+				1 if pass_b else 0, mean_ms, times.size(), mean_ms / float(ROWS_PER_COLUMN)],
+			"columns=%d mean=%.3f p50=%.3f p95=%.3f max=%.3f ms\ncolumn compiles=%d pass_b applications=%d field_cache=%s" % [
+				times.size(), mean_ms, stats["p50"], stats["p95"], stats["max"],
+				st["column_compiles"], st["pass_b_applications"], str(st["field_cache"])]))
+
+	out.append(_multipass_recommendation(per_variant))
+	return out
+
+
+func _multipass_recommendation(per_variant: Dictionary) -> Dictionary:
+	var graph_ms_per_chunk := 0.0
+	var built := AdapterRegistry.build_generator("graph", _cfg.seed_value, _cfg.to_gen_context())
+	if built["ok"]:
+		var gen: Resource = built["generator"]
+		var sample := _bench_origins().slice(0, 2048)
+		var format := VoxelFormat.new()
+		format.type_depth = VoxelBuffer.DEPTH_8_BIT
+		var block_vec := Vector3i(_cfg.mesh_block_size, _cfg.mesh_block_size, _cfg.mesh_block_size)
+		var t0 := Time.get_ticks_usec()
+		for o_variant in sample:
+			var buf: VoxelBuffer = format.create_buffer(block_vec)
+			gen.call("generate_block", buf, o_variant, 0)
+		graph_ms_per_chunk = float(Time.get_ticks_usec() - t0) / 1000.0 / float(maxi(1, sample.size()))
+	var graph_column := graph_ms_per_chunk * float(ROWS_PER_COLUMN)
+	var e0: float = per_variant.get(false, 0.0)
+	var e1: float = per_variant.get(true, 0.0)
+
+	var ratio := e0 / maxf(0.000001, graph_column)
+	var lines: Array[String] = []
+	lines.append("column cost (16x384x16), this machine, single-threaded:")
+	lines.append("  graph (compiled, extent 0 by construction):  %.3f ms/column" % graph_column)
+	lines.append("  multipass extent 0 (GDScript passes):         %.3f ms/column (%.1fx graph)" % [e0, ratio])
+	lines.append("  multipass extent 1 (+ neighbour cliff pass):  %.3f ms/column (%.1fx graph)" % [e1, e1 / maxf(0.000001, graph_column)])
+	lines.append("")
+	lines.append("RECOMMENDATION (M02+): keep the compiled graph as the default backend, with analytic")
+	lines.append("  extent-0 stamps for flora/structure density. Reserve the multipass evaluator for the")
+	lines.append("  few features that truly need cross-chunk reads (M08 trunks crossing chunk borders,")
+	lines.append("  M10 structures). Reasons, measured here:")
+	lines.append("  * multipass costs %.1fx the graph per column in pure GDScript, and that gap grows with" % ratio)
+	lines.append("    every neighbour-aware pass added (extent 1 already adds %.1f ms/column);" % (e1 - e0))
+	lines.append("  * VoxelGeneratorMultipassCB is NOT scriptable in the 1.7 GDExtension")
+	lines.append("    (probe_multipass2.gd: 'Can't inherit from a virtual class', no passes property),")
+	lines.append("    so there is no engine-accelerated multipass path to move this into;")
+	lines.append("  * MultipassCB also has no LOD support, which the distant-terrain milestone (M13) needs.")
+	lines.append("  The graph path therefore stays default; 'multipass' remains selectable in config for")
+	lines.append("  the features above and for cross-checking (55/64 chunks match the graph on seed 20260814).")
+	return TestHarness.ok(SUITE, "B3/rec", "multipass vs graph column-cost verdict", "\n".join(lines))
 
 
 func _mib(bytes: int) -> String:

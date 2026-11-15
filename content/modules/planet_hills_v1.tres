@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="HillsV1" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/worldgen/planet/hills_v1.gd" id="1_hills"]
+
+[resource]
+script = ExtResource("1_hills")
+id = &"planet.hills_v1"
+version = 1
+enabled = true
+phase = 0
+priority = 10
+requires = Array[StringName]([])
+provides = Array[StringName]([&"field.height"])
+params = {}
+quality_scaling = {
+"high": 1.0,
+"low": 0.5,
+"medium": 1.0
+}
+noise_frequency = 0.0035
+noise_octaves = 5
+noise_lacunarity = 2.0
+noise_gain = 0.5
+height_base = 64.0
+height_amplitude = 42.0
+tile_spacing = 16
+tile_halo = 2

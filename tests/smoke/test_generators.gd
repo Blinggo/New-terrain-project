@@ -235,7 +235,8 @@ func _registry_checks() -> Dictionary:
 	var order_ok := ids == AdapterRegistry.ORDER
 	var cycle := AdapterRegistry.next_id(ids[0])
 	var cycle2 := AdapterRegistry.next_id(cycle)
-	var cycle_ok := cycle == ids[1] and cycle2 == ids[0]
+	var cycle3 := AdapterRegistry.next_id(cycle2)
+	var cycle_ok := ids.size() == 3 and cycle == ids[1] and cycle2 == ids[2] and cycle3 == ids[0]
 	# AdapterRegistry.create() push_error()s on an unknown id, which would pollute the
 	# "no errors from our code" evidence for A1. Capture stderr-free by asking for a known
 	# bad id through the documented validation entry point instead.
@@ -243,7 +244,8 @@ func _registry_checks() -> Dictionary:
 	return TestHarness.result(SUITE, "S4j",
 		"PASS" if order_ok and cycle_ok and unknown == null else "FAIL",
 		"adapter registry exposes %d ids and cycles F3-style" % ids.size(),
-		"ids=%s next(%s)=%s next(%s)=%s unknown->null=%s" % [str(ids), ids[0], cycle, cycle, cycle2, str(unknown == null)])
+		"ids=%s next(%s)=%s next(%s)=%s next(%s)=%s unknown->null=%s" % [
+			str(ids), ids[0], cycle, cycle, cycle2, cycle2, cycle3, str(unknown == null)])
 
 
 func _seed_sensitivity() -> Dictionary:

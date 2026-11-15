@@ -32,7 +32,22 @@ noise libraries shipped inside it. No other third-party code, asset or plugin is
   and, for the `noise2d` adapter, through Godot's own engine-bundled `FastNoiseLite`
   (same upstream, same MIT terms, shipped by the Godot engine itself).
 
-## MIT license text (applies to all three)
+## 4. ReTerraForged - MIT (declared ahead of use, M01)
+
+- Copyright (c) 2024-2026 raccoonman2 and contributors
+- https://github.com/raccoonman2/ReTerraForged
+- Not vendored, not compiled, not copied in M01. Recorded now because M02 will port
+  continental-scale climate/biome algorithms from it; the port will be logged in
+  `docs/PORTING_LEDGER.md` at the moment it lands.
+
+## 5. TerraForged - MIT (declared ahead of use, M01)
+
+- Copyright (c) 2019-2026 The TerraForged team (won-ton, gdude2002 and contributors)
+- https://github.com/TerraForged/TerraForged
+- Same status as ReTerraForged: notice declared in M01, algorithm ports from M02 with a
+  ledger entry per ported file.
+
+## MIT license text (applies to all of the above)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this
 software and associated documentation files (the "Software"), to deal in the Software
@@ -50,7 +65,7 @@ FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TOR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-## 4. Godot Engine
+## 6. Godot Engine
 
 - Copyright (c) 2014-present Godot Engine contributors; Copyright (c) 2007-2014 Juan
   Linietsky, Ariel Manzur. MIT. https://godotengine.org
